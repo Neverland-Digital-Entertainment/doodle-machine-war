@@ -1,0 +1,184 @@
+import Phaser from 'phaser';
+import { CONFIG, PLAYERS, GAME_STATES, UNIT_TYPES } from '../config.js';
+import { DrawingSystem } from '../systems/DrawingSystem.js';
+
+export class GameScene extends Phaser.Scene {
+  constructor() {
+    super('GameScene');
+    this.currentPlayer = PLAYERS.PLAYER_1;
+    this.gameState = GAME_STATES.WAITING;
+    this.turn = 1;
+
+    // Player states
+    this.players = {
+      [PLAYERS.PLAYER_1]: {
+        hp: CONFIG.BASE_HP_MAX,
+        zone: 'bottom',
+        baseY: CONFIG.CANVAS_HEIGHT - CONFIG.BASE_Y_OFFSET,
+      },
+      [PLAYERS.PLAYER_2]: {
+        hp: CONFIG.BASE_HP_MAX,
+        zone: 'top',
+        baseY: CONFIG.BASE_Y_OFFSET,
+      },
+    };
+  }
+
+  create() {
+    // Set background color
+    this.cameras.main.setBackgroundColor(CONFIG.BACKGROUND_COLOR);
+
+    // Draw game layout
+    this.drawLayout();
+
+    // Create UI
+    this.createUI();
+
+    // Initialize drawing system
+    this.drawingSystem = new DrawingSystem(this);
+
+    // Test instructions
+    this.add.text(
+      CONFIG.CANVAS_WIDTH / 2,
+      CONFIG.CANVAS_HEIGHT / 2 + 30,
+      '← Try drawing: lines, triangles, circles →',
+      {
+        font: '14px Arial',
+        fill: '#cccccc',
+        align: 'center',
+      }
+    ).setOrigin(0.5);
+  }
+
+  drawLayout() {
+    const graphics = this.add.graphics();
+
+    // Draw dividing line
+    graphics.lineStyle(2, CONFIG.DIVIDER_COLOR);
+    graphics.beginPath();
+    graphics.moveTo(0, CONFIG.DIVIDER_Y);
+    graphics.lineTo(CONFIG.CANVAS_WIDTH, CONFIG.DIVIDER_Y);
+    graphics.strokePath();
+
+    // Draw zone boundaries (optional visual guides)
+    graphics.lineStyle(1, CONFIG.ZONE_LINE_COLOR);
+
+    // Enemy zone outline
+    graphics.strokeRect(0, 0, CONFIG.CANVAS_WIDTH, CONFIG.ENEMY_ZONE_HEIGHT);
+
+    // Player zone outline
+    graphics.strokeRect(0, CONFIG.DIVIDER_Y, CONFIG.CANVAS_WIDTH, CONFIG.PLAYER_ZONE_HEIGHT);
+
+    // Draw base HP nodes for both players
+    this.drawBases(graphics);
+  }
+
+  drawBases(graphics) {
+    const nodeSize = 20;
+    const nodeSpacing = 10;
+    const totalWidth = (nodeSize + nodeSpacing) * CONFIG.BASE_HP_MAX - nodeSpacing;
+
+    // Player 1 base (bottom)
+    const p1BaseX = (CONFIG.CANVAS_WIDTH - totalWidth) / 2;
+    const p1BaseY = CONFIG.CANVAS_HEIGHT - CONFIG.BASE_Y_OFFSET;
+
+    graphics.fillStyle(0x00ff00); // Green for player base
+    for (let i = 0; i < CONFIG.BASE_HP_MAX; i++) {
+      const x = p1BaseX + i * (nodeSize + nodeSpacing);
+      graphics.fillRect(x, p1BaseY - nodeSize / 2, nodeSize, nodeSize);
+    }
+
+    // Player 2 base (top)
+    const p2BaseX = (CONFIG.CANVAS_WIDTH - totalWidth) / 2;
+    const p2BaseY = CONFIG.BASE_Y_OFFSET;
+
+    graphics.fillStyle(0xff0000); // Red for enemy base
+    for (let i = 0; i < CONFIG.BASE_HP_MAX; i++) {
+      const x = p2BaseX + i * (nodeSize + nodeSpacing);
+      graphics.fillRect(x, p2BaseY - nodeSize / 2, nodeSize, nodeSize);
+    }
+  }
+
+  createUI() {
+    // Current player indicator
+    this.playerIndicator = this.add.text(
+      10,
+      10,
+      `Current Player: ${this.currentPlayer}`,
+      {
+        font: '20px Arial',
+        fill: CONFIG.TEXT_COLOR,
+      }
+    );
+
+    // Turn counter
+    this.turnIndicator = this.add.text(
+      10,
+      40,
+      `Turn: ${this.turn}`,
+      {
+        font: '20px Arial',
+        fill: CONFIG.TEXT_COLOR,
+      }
+    );
+
+    // Player 1 HP
+    this.hp1Indicator = this.add.text(
+      CONFIG.CANVAS_WIDTH - 150,
+      CONFIG.CANVAS_HEIGHT - 50,
+      `Player 1 HP: ${this.players[PLAYERS.PLAYER_1].hp}`,
+      {
+        font: '16px Arial',
+        fill: '#00ff00',
+      }
+    );
+
+    // Player 2 HP
+    this.hp2Indicator = this.add.text(
+      CONFIG.CANVAS_WIDTH - 150,
+      10,
+      `Player 2 HP: ${this.players[PLAYERS.PLAYER_2].hp}`,
+      {
+        font: '16px Arial',
+        fill: '#ff0000',
+      }
+    );
+
+    // Instructions
+    this.add.text(
+      CONFIG.CANVAS_WIDTH / 2,
+      CONFIG.CANVAS_HEIGHT / 2,
+      'Draw on the screen to place units or attack',
+      {
+        font: '16px Arial',
+        fill: CONFIG.TEXT_COLOR,
+        align: 'center',
+      }
+    ).setOrigin(0.5);
+  }
+
+  /**
+   * Called when a stroke is completed and shape is recognized
+   */
+  onStrokeComplete(shapeInfo, stroke) {
+    // Visual feedback - show a marker at the detection point
+    this.drawingSystem.drawShape(shapeInfo);
+  }
+
+  switchPlayer() {
+    this.currentPlayer = this.currentPlayer === PLAYERS.PLAYER_1 ? PLAYERS.PLAYER_2 : PLAYERS.PLAYER_1;
+    this.turn++;
+    this.updateUI();
+  }
+
+  updateUI() {
+    this.playerIndicator.setText(`Current Player: ${this.currentPlayer}`);
+    this.turnIndicator.setText(`Turn: ${this.turn}`);
+    this.hp1Indicator.setText(`Player 1 HP: ${this.players[PLAYERS.PLAYER_1].hp}`);
+    this.hp2Indicator.setText(`Player 2 HP: ${this.players[PLAYERS.PLAYER_2].hp}`);
+  }
+
+  update() {
+    // Game loop - will be populated in later phases
+  }
+}
