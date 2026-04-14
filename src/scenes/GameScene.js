@@ -194,21 +194,25 @@ export class GameScene extends Phaser.Scene {
    * Called when a stroke is completed and shape is recognized
    */
   onStrokeComplete(shapeInfo, stroke) {
-    if (!shapeInfo.type) return;
-
     const currentPlayer = this.gameStateManager.currentPlayer;
-    const center = shapeInfo.center;
 
-    // In attack mode: perform attack from stroke start to end
+    // In attack mode: perform attack from stroke start to end (no shape detection needed)
     if (this.attackMode) {
       if (stroke.length >= 2) {
         const startPoint = stroke[0];
         const endPoint = stroke[stroke.length - 1];
+        // Clear drawing system preview before attack visualization
+        this.drawingSystem.previewGraphics.clear();
         this.combatSystem.performAttack(currentPlayer, startPoint.x, startPoint.y, endPoint.x, endPoint.y);
         this.updateUI();
       }
       return;
     }
+
+    // Normal mode requires shape detection
+    if (!shapeInfo.type) return;
+
+    const center = shapeInfo.center;
 
     // Normal mode: place units
     let placed = false;
