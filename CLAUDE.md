@@ -8,8 +8,39 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
-This repository is in initial setup. No source code has been committed yet. When development begins, update this file with:
+Active development in phases. Currently completed:
+- ✅ Phase 1: Project initialization
+- ✅ Phase 2: Drawing input system with shape detection
+- ✅ Phase 3: Game state management
+- ✅ Phase 4: Unit system (shields and weapons)
+- ✅ Phase 5: Raycast and attack system
 
-- Build, dev-server, and test commands (e.g. `npm run dev`, `npm test`)
-- Entry point and scene structure once the Phaser 3 project is scaffolded
-- Any drawing-input or raycast utility modules worth calling out
+## Development Workflow
+
+### Per-Phase Delivery Rules
+
+**After completing and testing each Phase:**
+
+1. **Create a new branch** for the Phase (e.g., `feature/phase-X-description`)
+2. **Commit all Phase changes** with descriptive commit message including Phase number and summary
+3. **Push the branch** to GitHub (`git push origin feature/phase-X-description`)
+4. **Create a Pull Request** on GitHub with:
+   - Title: `Phase X: Feature Description`
+   - Body: Summary of changes, test checklist, and notable implementations
+   - Link back to development plan
+5. **Merge to main** after PR review
+
+### Commands
+
+```bash
+npm run dev      # Start development server (https://localhost:5173)
+npm run build    # Production build
+```
+
+## Architecture
+
+- **Entry**: `src/main.js` → Phaser 3 initialization
+- **Scene**: `src/scenes/GameScene.js` → Main game logic
+- **Systems**: `src/systems/` → GameState, DrawingSystem, UnitManager, RaycastSystem, CombatSystem
+- **Entities**: `src/entities/` → Player, Shield, Weapon
+- **Utils**: `src/utils/` → ShapeDetector (Douglas-Peucker polyline simplification)
