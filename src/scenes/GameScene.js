@@ -2,11 +2,14 @@ import Phaser from 'phaser';
 import { CONFIG, PLAYERS, GAME_STATES, UNIT_TYPES } from '../config.js';
 import { DrawingSystem } from '../systems/DrawingSystem.js';
 import { GameState } from '../systems/GameState.js';
+import { UnitManager } from '../systems/UnitManager.js';
+import { CombatSystem } from '../systems/CombatSystem.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
     super('GameScene');
     this.gameStateManager = new GameState();
+    this.attackMode = false;
   }
 
   create() {
@@ -18,6 +21,12 @@ export class GameScene extends Phaser.Scene {
 
     // Create UI
     this.createUI();
+
+    // Initialize unit manager
+    this.unitManager = new UnitManager(this);
+
+    // Initialize combat system
+    this.combatSystem = new CombatSystem(this, this.unitManager, this.gameStateManager);
 
     // Initialize drawing system
     this.drawingSystem = new DrawingSystem(this);
@@ -43,6 +52,12 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard.on('keydown-D', () => {
       this.gameStateManager.damageBase(this.gameStateManager.currentPlayer);
       this.updateUI();
+    });
+
+    // Test keyboard: A to toggle attack mode
+    this.input.keyboard.on('keydown-A', () => {
+      this.attackMode = !this.attackMode;
+      console.log(`Attack Mode: ${this.attackMode ? 'ON' : 'OFF'}`);
     });
   }
 
@@ -140,6 +155,28 @@ export class GameScene extends Phaser.Scene {
       }
     );
 
+    // Player 1 Units (shields + weapons)
+    this.p1UnitsIndicator = this.add.text(
+      CONFIG.CANVAS_WIDTH - 150,
+      CONFIG.CANVAS_HEIGHT - 20,
+      `P1 Units: 0S 0W`,
+      {
+        font: '12px Arial',
+        fill: '#00ff00',
+      }
+    );
+
+    // Player 2 Units (shields + weapons)
+    this.p2UnitsIndicator = this.add.text(
+      CONFIG.CANVAS_WIDTH - 150,
+      40,
+      `P2 Units: 0S 0W`,
+      {
+        font: '12px Arial',
+        fill: '#ff0000',
+      }
+    );
+
     // Instructions
     this.add.text(
       CONFIG.CANVAS_WIDTH / 2,
@@ -157,8 +194,56 @@ export class GameScene extends Phaser.Scene {
    * Called when a stroke is completed and shape is recognized
    */
   onStrokeComplete(shapeInfo, stroke) {
+    if (!shapeInfo.type) return;
+
+    const currentPlayer = this.gameStateManager.currentPlayer;
+    const center = shapeInfo.center;
+
+    // In attack mode: perform attack from stroke start to end
+    if (this.attackMode) {
+      if (stroke.length >= 2) {
+        const startPoint = stroke[0];
+        const endPoint = stroke[stroke.length - 1];
+        this.combatSystem.performAttack(currentPlayer, startPoint.x, startPoint.y, endPoint.x, endPoint.y);
+        this.updateUI();
+      }
+      return;
+    }
+
+    // Normal mode: place units
+    let placed = false;
+
+    // Place unit based on shape type
+    switch (shapeInfo.type) {
+      case 'line':
+        // Line → Shield (concentric around base)
+        placed = this.unitManager.placeShield(currentPlayer);
+        if (placed) {
+          console.log(`Shield placed for ${currentPlayer}`);
+        }
+        break;
+
+      case 'triangle':
+        // Triangle → Weapon
+        placed = this.unitManager.placeWeapon(currentPlayer, center.x, center.y);
+        if (placed) {
+          console.log(`Weapon placed for ${currentPlayer}`);
+        }
+        break;
+
+      case 'circle':
+        // Circle → Reserved for future abilities
+        console.log('Circle: reserved for special abilities');
+        break;
+    }
+
     // Visual feedback - show a marker at the detection point
     this.drawingSystem.drawShape(shapeInfo);
+
+    // Update UI to show unit counts
+    if (placed) {
+      this.updateUnitDisplay();
+    }
   }
 
   switchPlayer() {
@@ -171,6 +256,17 @@ export class GameScene extends Phaser.Scene {
     this.turnIndicator.setText(`Turn: ${this.gameStateManager.currentTurn}`);
     this.hp1Indicator.setText(`Player 1 HP: ${this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_1)}`);
     this.hp2Indicator.setText(`Player 2 HP: ${this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_2)}`);
+    this.updateUnitDisplay();
+  }
+
+  updateUnitDisplay() {
+    const p1Shields = this.unitManager.getShieldsForPlayer(PLAYERS.PLAYER_1).length;
+    const p1Weapons = this.unitManager.getWeaponsForPlayer(PLAYERS.PLAYER_1).length;
+    const p2Shields = this.unitManager.getShieldsForPlayer(PLAYERS.PLAYER_2).length;
+    const p2Weapons = this.unitManager.getWeaponsForPlayer(PLAYERS.PLAYER_2).length;
+
+    this.p1UnitsIndicator.setText(`P1 Units: ${p1Shields}S ${p1Weapons}W`);
+    this.p2UnitsIndicator.setText(`P2 Units: ${p2Shields}S ${p2Weapons}W`);
   }
 
   update() {
