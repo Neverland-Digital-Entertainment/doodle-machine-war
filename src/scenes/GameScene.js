@@ -11,6 +11,8 @@ export class GameScene extends Phaser.Scene {
     super('GameScene');
     this.gameStateManager = new GameState();
     this.attackMode = false;
+    this.gameOverUI = null;
+    this.isGameOver = false;
   }
 
   create() {
@@ -198,6 +200,9 @@ export class GameScene extends Phaser.Scene {
    * Called when a stroke is completed and shape is recognized
    */
   onStrokeComplete(shapeInfo, stroke) {
+    // Ignore if game is over
+    if (this.isGameOver) return;
+
     const currentPlayer = this.gameStateManager.currentPlayer;
 
     // In attack mode: perform attack from stroke start to end (no shape detection needed)
@@ -265,6 +270,11 @@ export class GameScene extends Phaser.Scene {
     this.hp1Indicator.setText(`Player 1 HP: ${this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_1)}`);
     this.hp2Indicator.setText(`Player 2 HP: ${this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_2)}`);
     this.updateUnitDisplay();
+
+    // Check for game over condition
+    if (this.gameStateManager.isGameOver()) {
+      this.showGameOver();
+    }
   }
 
   updateUnitDisplay() {
@@ -275,6 +285,121 @@ export class GameScene extends Phaser.Scene {
 
     this.p1UnitsIndicator.setText(`P1 Units: ${p1Shields}S ${p1Weapons}W`);
     this.p2UnitsIndicator.setText(`P2 Units: ${p2Shields}S ${p2Weapons}W`);
+  }
+
+  /**
+   * Show game over screen with winner announcement
+   */
+  showGameOver() {
+    if (this.isGameOver) return; // Already showing game over
+
+    this.isGameOver = true;
+
+    // Create overlay background (non-interactive)
+    const overlay = this.add.rectangle(
+      CONFIG.CANVAS_WIDTH / 2,
+      CONFIG.CANVAS_HEIGHT / 2,
+      CONFIG.CANVAS_WIDTH,
+      CONFIG.CANVAS_HEIGHT,
+      0x000000,
+      0.7
+    );
+    overlay.setDepth(100);
+
+    // Get winner
+    const winner = this.gameStateManager.getWinner();
+    const winnerText = winner === PLAYERS.PLAYER_1 ? 'Player 1' : 'Player 2';
+    const winnerColor = winner === PLAYERS.PLAYER_1 ? '#00ff00' : '#ff0000';
+
+    // Display winner text
+    const title = this.add.text(
+      CONFIG.CANVAS_WIDTH / 2,
+      CONFIG.CANVAS_HEIGHT / 2 - 60,
+      `${winnerText} Wins!`,
+      {
+        font: 'bold 48px Arial',
+        fill: winnerColor,
+        align: 'center',
+      }
+    );
+    title.setOrigin(0.5);
+    title.setDepth(101);
+
+    // Display game over message
+    const message = this.add.text(
+      CONFIG.CANVAS_WIDTH / 2,
+      CONFIG.CANVAS_HEIGHT / 2,
+      'Game Over',
+      {
+        font: '32px Arial',
+        fill: '#ffffff',
+        align: 'center',
+      }
+    );
+    message.setOrigin(0.5);
+    message.setDepth(101);
+
+    // Create restart button
+    const buttonX = CONFIG.CANVAS_WIDTH / 2;
+    const buttonY = CONFIG.CANVAS_HEIGHT / 2 + 80;
+    const buttonWidth = 200;
+    const buttonHeight = 50;
+
+    const buttonBg = this.add.rectangle(
+      buttonX,
+      buttonY,
+      buttonWidth,
+      buttonHeight,
+      0x4444ff
+    );
+    buttonBg.setDepth(101);
+    buttonBg.setInteractive({ useHandCursor: true });
+
+    const buttonText = this.add.text(
+      buttonX,
+      buttonY,
+      'Restart Game',
+      {
+        font: '20px Arial',
+        fill: '#ffffff',
+        align: 'center',
+      }
+    );
+    buttonText.setOrigin(0.5);
+    buttonText.setDepth(102);
+
+    // Handle button hover
+    buttonBg.on('pointerover', () => {
+      buttonBg.setFillStyle(0x6666ff);
+    });
+
+    buttonBg.on('pointerout', () => {
+      buttonBg.setFillStyle(0x4444ff);
+    });
+
+    // Handle button click
+    buttonBg.on('pointerdown', () => {
+      this.restartGame();
+    });
+
+    // Store game over UI elements for potential cleanup
+    this.gameOverUI = { overlay, title, message, buttonBg, buttonText };
+  }
+
+  /**
+   * Restart the game
+   */
+  restartGame() {
+    this.gameStateManager.reset();
+    this.unitManager.clear();
+    this.isGameOver = false;
+    this.attackMode = false;
+
+    // Re-enable input
+    this.input.enabled = true;
+
+    // Restart the scene
+    this.scene.restart();
   }
 
   update() {
