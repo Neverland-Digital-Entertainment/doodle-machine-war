@@ -3,11 +3,13 @@ import { CONFIG, PLAYERS, GAME_STATES, UNIT_TYPES } from '../config.js';
 import { DrawingSystem } from '../systems/DrawingSystem.js';
 import { GameState } from '../systems/GameState.js';
 import { UnitManager } from '../systems/UnitManager.js';
+import { CombatSystem } from '../systems/CombatSystem.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
     super('GameScene');
     this.gameStateManager = new GameState();
+    this.attackMode = false;
   }
 
   create() {
@@ -22,6 +24,9 @@ export class GameScene extends Phaser.Scene {
 
     // Initialize unit manager
     this.unitManager = new UnitManager(this);
+
+    // Initialize combat system
+    this.combatSystem = new CombatSystem(this, this.unitManager, this.gameStateManager);
 
     // Initialize drawing system
     this.drawingSystem = new DrawingSystem(this);
@@ -47,6 +52,12 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard.on('keydown-D', () => {
       this.gameStateManager.damageBase(this.gameStateManager.currentPlayer);
       this.updateUI();
+    });
+
+    // Test keyboard: A to toggle attack mode
+    this.input.keyboard.on('keydown-A', () => {
+      this.attackMode = !this.attackMode;
+      console.log(`Attack Mode: ${this.attackMode ? 'ON' : 'OFF'}`);
     });
   }
 
@@ -188,6 +199,18 @@ export class GameScene extends Phaser.Scene {
     const currentPlayer = this.gameStateManager.currentPlayer;
     const center = shapeInfo.center;
 
+    // In attack mode: perform attack from stroke start to end
+    if (this.attackMode) {
+      if (stroke.length >= 2) {
+        const startPoint = stroke[0];
+        const endPoint = stroke[stroke.length - 1];
+        this.combatSystem.performAttack(currentPlayer, startPoint.x, startPoint.y, endPoint.x, endPoint.y);
+        this.updateUI();
+      }
+      return;
+    }
+
+    // Normal mode: place units
     let placed = false;
 
     // Place unit based on shape type
