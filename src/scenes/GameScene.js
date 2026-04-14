@@ -5,6 +5,7 @@ import { GameState } from '../systems/GameState.js';
 import { UnitManager } from '../systems/UnitManager.js';
 import { CombatSystem } from '../systems/CombatSystem.js';
 import { FeedbackSystem } from '../systems/FeedbackSystem.js';
+import { AISystem } from '../systems/AISystem.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -13,6 +14,10 @@ export class GameScene extends Phaser.Scene {
     this.attackMode = false;
     this.gameOverUI = null;
     this.isGameOver = false;
+    this.enableAI = true; // Enable AI opponent
+    this.aiSystem = null;
+    this.isAITurn = false;
+    this.actionUsedThisTurn = false; // Track if player has taken an action this turn
   }
 
   create() {
@@ -37,6 +42,12 @@ export class GameScene extends Phaser.Scene {
     // Initialize drawing system
     this.drawingSystem = new DrawingSystem(this);
 
+    // Initialize AI system
+    if (this.enableAI) {
+      this.aiSystem = new AISystem(this.unitManager, this.combatSystem, this.gameStateManager);
+      this.isAITurn = false; // Start with player 1 (human)
+    }
+
     // Test instructions
     this.add.text(
       CONFIG.CANVAS_WIDTH / 2,
@@ -49,21 +60,10 @@ export class GameScene extends Phaser.Scene {
       }
     ).setOrigin(0.5);
 
-    // Test keyboard: spacebar to switch turns
-    this.input.keyboard.on('keydown-SPACE', () => {
-      this.switchPlayer();
-    });
-
     // Test keyboard: D to damage current player's base
     this.input.keyboard.on('keydown-D', () => {
       this.gameStateManager.damageBase(this.gameStateManager.currentPlayer);
       this.updateUI();
-    });
-
-    // Test keyboard: A to toggle attack mode
-    this.input.keyboard.on('keydown-A', () => {
-      this.attackMode = !this.attackMode;
-      console.log(`Attack Mode: ${this.attackMode ? 'ON' : 'OFF'}`);
     });
   }
 
@@ -200,8 +200,8 @@ export class GameScene extends Phaser.Scene {
    * Called when a stroke is completed and shape is recognized
    */
   onStrokeComplete(shapeInfo, stroke) {
-    // Ignore if game is over
-    if (this.isGameOver) return;
+    // Ignore if game is over or action already used
+    if (this.isGameOver || this.actionUsedThisTurn) return;
 
     const currentPlayer = this.gameStateManager.currentPlayer;
 
@@ -213,7 +213,7 @@ export class GameScene extends Phaser.Scene {
         // Clear drawing system preview before attack visualization
         this.drawingSystem.previewGraphics.clear();
         this.combatSystem.performAttack(currentPlayer, startPoint.x, startPoint.y, endPoint.x, endPoint.y);
-        this.updateUI();
+        this.markActionUsed();
       }
       return;
     }
@@ -256,16 +256,53 @@ export class GameScene extends Phaser.Scene {
     // Update UI to show unit counts
     if (placed) {
       this.updateUnitDisplay();
+      this.markActionUsed();
     }
+  }
+
+  /**
+   * Mark that player has used their action for this turn
+   */
+  markActionUsed() {
+    this.actionUsedThisTurn = true;
+    this.updateUI();
+
+    // Auto switch turn after a short delay
+    this.time.delayedCall(800, () => {
+      this.switchPlayer();
+    });
   }
 
   switchPlayer() {
     this.gameStateManager.endTurn();
+    this.actionUsedThisTurn = false;
+    this.attackMode = false;
     this.updateUI();
+
+    // Check if it's AI turn
+    if (this.enableAI && this.gameStateManager.currentPlayer === PLAYERS.PLAYER_2) {
+      this.isAITurn = true;
+      this.input.enabled = false;
+      this.drawingSystem.isDrawing = false;
+
+      // Execute AI turn after a delay
+      this.time.delayedCall(800, () => {
+        if (this.aiSystem && !this.isGameOver) {
+          this.aiSystem.executeTurn().then(() => {
+            // AI turn complete, switch back to player
+            this.switchPlayer();
+          });
+        }
+      });
+    } else {
+      this.isAITurn = false;
+      this.input.enabled = true;
+    }
   }
 
   updateUI() {
-    this.playerIndicator.setText(`Current Player: ${this.gameStateManager.currentPlayer}`);
+    const playerText = this.isAITurn ? 'AI (Player 2)' : `Player ${this.gameStateManager.currentPlayer}`;
+    this.playerIndicator.setText(`Current Player: ${playerText}`);
     this.turnIndicator.setText(`Turn: ${this.gameStateManager.currentTurn}`);
     this.hp1Indicator.setText(`Player 1 HP: ${this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_1)}`);
     this.hp2Indicator.setText(`Player 2 HP: ${this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_2)}`);
@@ -394,6 +431,7 @@ export class GameScene extends Phaser.Scene {
     this.unitManager.clear();
     this.isGameOver = false;
     this.attackMode = false;
+    this.isAITurn = false;
 
     // Re-enable input
     this.input.enabled = true;
