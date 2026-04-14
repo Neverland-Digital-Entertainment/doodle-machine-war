@@ -43,6 +43,26 @@ export class DrawingSystem {
     this.currentStroke = [{ x: pointer.x, y: pointer.y }];
     this.graphics.clear();
     this.previewGraphics.clear();
+
+    // Check if mousedown is on a weapon - auto enable attack mode
+    if (this.scene.unitManager) {
+      const currentPlayer = this.scene.gameStateManager.currentPlayer;
+      const playerWeapons = this.scene.unitManager.getWeaponsForPlayer(currentPlayer);
+
+      for (const weapon of playerWeapons) {
+        const bounds = weapon.getBounds();
+        if (
+          pointer.x >= bounds.minX &&
+          pointer.x <= bounds.maxX &&
+          pointer.y >= bounds.minY &&
+          pointer.y <= bounds.maxY
+        ) {
+          // Pointer is on a weapon - enable attack mode
+          this.scene.attackMode = true;
+          break;
+        }
+      }
+    }
   }
 
   continueStroke(pointer) {
