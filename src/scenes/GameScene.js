@@ -1,27 +1,12 @@
 import Phaser from 'phaser';
 import { CONFIG, PLAYERS, GAME_STATES, UNIT_TYPES } from '../config.js';
 import { DrawingSystem } from '../systems/DrawingSystem.js';
+import { GameState } from '../systems/GameState.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
     super('GameScene');
-    this.currentPlayer = PLAYERS.PLAYER_1;
-    this.gameState = GAME_STATES.WAITING;
-    this.turn = 1;
-
-    // Player states
-    this.players = {
-      [PLAYERS.PLAYER_1]: {
-        hp: CONFIG.BASE_HP_MAX,
-        zone: 'bottom',
-        baseY: CONFIG.CANVAS_HEIGHT - CONFIG.BASE_Y_OFFSET,
-      },
-      [PLAYERS.PLAYER_2]: {
-        hp: CONFIG.BASE_HP_MAX,
-        zone: 'top',
-        baseY: CONFIG.BASE_Y_OFFSET,
-      },
-    };
+    this.gameStateManager = new GameState();
   }
 
   create() {
@@ -48,6 +33,17 @@ export class GameScene extends Phaser.Scene {
         align: 'center',
       }
     ).setOrigin(0.5);
+
+    // Test keyboard: spacebar to switch turns
+    this.input.keyboard.on('keydown-SPACE', () => {
+      this.switchPlayer();
+    });
+
+    // Test keyboard: D to damage current player's base
+    this.input.keyboard.on('keydown-D', () => {
+      this.gameStateManager.damageBase(this.gameStateManager.currentPlayer);
+      this.updateUI();
+    });
   }
 
   drawLayout() {
@@ -83,7 +79,7 @@ export class GameScene extends Phaser.Scene {
     const p1BaseY = CONFIG.CANVAS_HEIGHT - CONFIG.BASE_Y_OFFSET;
 
     graphics.fillStyle(0x00ff00); // Green for player base
-    for (let i = 0; i < CONFIG.BASE_HP_MAX; i++) {
+    for (let i = 0; i < this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_1); i++) {
       const x = p1BaseX + i * (nodeSize + nodeSpacing);
       graphics.fillRect(x, p1BaseY - nodeSize / 2, nodeSize, nodeSize);
     }
@@ -93,7 +89,7 @@ export class GameScene extends Phaser.Scene {
     const p2BaseY = CONFIG.BASE_Y_OFFSET;
 
     graphics.fillStyle(0xff0000); // Red for enemy base
-    for (let i = 0; i < CONFIG.BASE_HP_MAX; i++) {
+    for (let i = 0; i < this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_2); i++) {
       const x = p2BaseX + i * (nodeSize + nodeSpacing);
       graphics.fillRect(x, p2BaseY - nodeSize / 2, nodeSize, nodeSize);
     }
@@ -104,7 +100,7 @@ export class GameScene extends Phaser.Scene {
     this.playerIndicator = this.add.text(
       10,
       10,
-      `Current Player: ${this.currentPlayer}`,
+      `Current Player: ${this.gameStateManager.currentPlayer}`,
       {
         font: '20px Arial',
         fill: CONFIG.TEXT_COLOR,
@@ -115,7 +111,7 @@ export class GameScene extends Phaser.Scene {
     this.turnIndicator = this.add.text(
       10,
       40,
-      `Turn: ${this.turn}`,
+      `Turn: ${this.gameStateManager.currentTurn}`,
       {
         font: '20px Arial',
         fill: CONFIG.TEXT_COLOR,
@@ -126,7 +122,7 @@ export class GameScene extends Phaser.Scene {
     this.hp1Indicator = this.add.text(
       CONFIG.CANVAS_WIDTH - 150,
       CONFIG.CANVAS_HEIGHT - 50,
-      `Player 1 HP: ${this.players[PLAYERS.PLAYER_1].hp}`,
+      `Player 1 HP: ${this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_1)}`,
       {
         font: '16px Arial',
         fill: '#00ff00',
@@ -137,7 +133,7 @@ export class GameScene extends Phaser.Scene {
     this.hp2Indicator = this.add.text(
       CONFIG.CANVAS_WIDTH - 150,
       10,
-      `Player 2 HP: ${this.players[PLAYERS.PLAYER_2].hp}`,
+      `Player 2 HP: ${this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_2)}`,
       {
         font: '16px Arial',
         fill: '#ff0000',
@@ -166,16 +162,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   switchPlayer() {
-    this.currentPlayer = this.currentPlayer === PLAYERS.PLAYER_1 ? PLAYERS.PLAYER_2 : PLAYERS.PLAYER_1;
-    this.turn++;
+    this.gameStateManager.endTurn();
     this.updateUI();
   }
 
   updateUI() {
-    this.playerIndicator.setText(`Current Player: ${this.currentPlayer}`);
-    this.turnIndicator.setText(`Turn: ${this.turn}`);
-    this.hp1Indicator.setText(`Player 1 HP: ${this.players[PLAYERS.PLAYER_1].hp}`);
-    this.hp2Indicator.setText(`Player 2 HP: ${this.players[PLAYERS.PLAYER_2].hp}`);
+    this.playerIndicator.setText(`Current Player: ${this.gameStateManager.currentPlayer}`);
+    this.turnIndicator.setText(`Turn: ${this.gameStateManager.currentTurn}`);
+    this.hp1Indicator.setText(`Player 1 HP: ${this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_1)}`);
+    this.hp2Indicator.setText(`Player 2 HP: ${this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_2)}`);
   }
 
   update() {
