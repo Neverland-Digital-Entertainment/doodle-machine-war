@@ -11,6 +11,7 @@ export class DrawingSystem {
     this.currentStroke = []; // Array of {x, y} points
     this.graphics = scene.add.graphics();
     this.graphics.clear();
+    this.previewGraphics = scene.add.graphics(); // For attack mode preview
 
     this.initializeInput();
   }
@@ -41,6 +42,7 @@ export class DrawingSystem {
     this.isDrawing = true;
     this.currentStroke = [{ x: pointer.x, y: pointer.y }];
     this.graphics.clear();
+    this.previewGraphics.clear();
   }
 
   continueStroke(pointer) {
@@ -59,11 +61,14 @@ export class DrawingSystem {
 
     console.log(`Detected: ${shapeInfo.type || 'NONE'}`);
 
-    if (shapeInfo.type) {
+    // In attack mode, always fire onStrokeComplete (no shape detection needed)
+    // In normal mode, only fire if a shape was recognized
+    if (this.scene.attackMode || shapeInfo.type) {
       this.scene.onStrokeComplete(shapeInfo, this.currentStroke);
     }
 
     this.graphics.clear();
+    this.previewGraphics.clear();
     this.currentStroke = [];
   }
 
@@ -72,10 +77,21 @@ export class DrawingSystem {
 
     this.isDrawing = false;
     this.graphics.clear();
+    this.previewGraphics.clear();
     this.currentStroke = [];
   }
 
   redrawStroke() {
+    // In attack mode, only show attack preview, not the regular stroke
+    if (this.scene.attackMode) {
+      this.graphics.clear();
+      if (this.currentStroke.length >= 2) {
+        this.showAttackPreview();
+      }
+      return;
+    }
+
+    // Normal mode: show regular stroke
     this.graphics.clear();
     this.graphics.lineStyle(CONFIG.STROKE_WIDTH, CONFIG.STROKE_COLOR, 1);
     this.graphics.beginPath();
@@ -92,10 +108,51 @@ export class DrawingSystem {
   }
 
   /**
+   * Show real-time attack preview in attack mode
+   */
+  showAttackPreview() {
+    if (!this.scene.combatSystem || this.currentStroke.length < 2) return;
+
+    this.previewGraphics.clear();
+
+    const startPoint = this.currentStroke[0];
+    const endPoint = this.currentStroke[this.currentStroke.length - 1];
+
+    // Cast ray to check what we'd hit
+    const hitResult = this.scene.combatSystem.raycastSystem.castRay(
+      startPoint.x,
+      startPoint.y,
+      endPoint.x,
+      endPoint.y,
+      this.scene.gameStateManager.currentPlayer
+    );
+
+    // Choose color based on hit result
+    let color;
+    if (hitResult.hitTarget) {
+      color = 0xffff00; // Yellow for successful hit
+    } else {
+      color = 0xff6666; // Red for miss
+    }
+
+    // Draw attack preview line
+    this.previewGraphics.lineStyle(2, color, 1);
+    this.previewGraphics.beginPath();
+    this.previewGraphics.moveTo(startPoint.x, startPoint.y);
+    this.previewGraphics.lineTo(endPoint.x, endPoint.y);
+    this.previewGraphics.strokePath();
+
+    // Draw start point
+    this.previewGraphics.fillStyle(color, 0.8);
+    this.previewGraphics.fillCircle(startPoint.x, startPoint.y, 4);
+  }
+
+  /**
    * Clear all visual strokes
    */
   clear() {
     this.graphics.clear();
+    this.previewGraphics.clear();
   }
 
   /**
