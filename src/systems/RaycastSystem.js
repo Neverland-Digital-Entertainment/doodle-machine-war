@@ -208,25 +208,48 @@ export class RaycastSystem {
   /**
    * Resolve hit: destroy target or damage base
    */
-  resolveHit(hitResult, attackerPlayerNum) {
+  resolveHit(hitResult, attackerPlayerNum, scene = null) {
     if (!hitResult.hitTarget) return false; // No hit
 
     switch (hitResult.targetType) {
       case 'shield':
         // Destroy the shield
-        this.unitManager.removeShield(hitResult.targetObject);
+        const shieldObj = hitResult.targetObject;
+        if (scene && scene.feedbackSystem) {
+          scene.feedbackSystem.showDestructionEffect(
+            shieldObj.centerX,
+            shieldObj.centerY,
+            0xffa500
+          );
+        }
+        this.unitManager.removeShield(shieldObj);
         console.log('Shield destroyed!');
         return true;
 
       case 'weapon':
         // Destroy the weapon
-        this.unitManager.removeWeapon(hitResult.targetObject);
+        const weaponObj = hitResult.targetObject;
+        if (scene && scene.feedbackSystem) {
+          scene.feedbackSystem.showDestructionEffect(
+            weaponObj.x,
+            weaponObj.y,
+            0xff0000
+          );
+        }
+        this.unitManager.removeWeapon(weaponObj);
         console.log('Weapon destroyed!');
         return true;
 
       case 'base':
         // Damage the base
         const defenderPlayerNum = hitResult.hitTarget;
+        if (scene && scene.feedbackSystem && hitResult.hitPoint) {
+          scene.feedbackSystem.showDamageNumber(
+            hitResult.hitPoint.x,
+            hitResult.hitPoint.y,
+            1
+          );
+        }
         this.gameState.damageBase(defenderPlayerNum);
         console.log(`Base damaged! ${defenderPlayerNum} HP: ${this.gameState.getPlayerHP(defenderPlayerNum)}`);
         return true;

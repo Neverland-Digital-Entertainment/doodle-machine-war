@@ -26,7 +26,7 @@ export class CombatSystem {
 
     // Resolve the hit
     if (hitResult.hitTarget) {
-      this.raycastSystem.resolveHit(hitResult, attackerPlayerNum);
+      this.raycastSystem.resolveHit(hitResult, attackerPlayerNum, this.scene);
       return true;
     }
 

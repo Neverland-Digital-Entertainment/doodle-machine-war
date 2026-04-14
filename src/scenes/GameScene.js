@@ -4,6 +4,7 @@ import { DrawingSystem } from '../systems/DrawingSystem.js';
 import { GameState } from '../systems/GameState.js';
 import { UnitManager } from '../systems/UnitManager.js';
 import { CombatSystem } from '../systems/CombatSystem.js';
+import { FeedbackSystem } from '../systems/FeedbackSystem.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -27,6 +28,9 @@ export class GameScene extends Phaser.Scene {
 
     // Initialize combat system
     this.combatSystem = new CombatSystem(this, this.unitManager, this.gameStateManager);
+
+    // Initialize feedback system
+    this.feedbackSystem = new FeedbackSystem(this);
 
     // Initialize drawing system
     this.drawingSystem = new DrawingSystem(this);
