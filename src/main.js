@@ -2,9 +2,15 @@ import Phaser from 'phaser';
 import { GameScene } from './scenes/GameScene.js';
 import { CONFIG } from './config.js';
 
-// Import fonts as data URLs so vite-plugin-singlefile inlines them
-import rudimentUrl from './fonts/rudiment_medium.ttf';
-import sketchBlockUrl from './fonts/sketch_block.ttf';
+// Fonts live in public/fonts/ → copied to dist/fonts/ as separate files.
+// FontFace API uses relative paths; CSS font-loading is NOT blocked by file://
+// CORS (unlike XHR), so this works when the HTML is opened directly from disk.
+async function loadFonts() {
+  const rudiment  = new FontFace('rudiment_medium', 'url(fonts/rudiment_medium.ttf)');
+  const sketchBlock = new FontFace('sketch_block',  'url(fonts/sketch_block.ttf)');
+  const loaded = await Promise.all([rudiment.load(), sketchBlock.load()]);
+  loaded.forEach(f => document.fonts.add(f));
+}
 
 const gameConfig = {
   type: Phaser.AUTO,
@@ -17,15 +23,6 @@ const gameConfig = {
   },
   scene: [GameScene],
 };
-
-// Load custom fonts via FontFace API before starting Phaser,
-// so text objects can use them immediately in create().
-async function loadFonts() {
-  const rudiment = new FontFace('rudiment_medium', `url(${rudimentUrl})`);
-  const sketchBlock = new FontFace('sketch_block', `url(${sketchBlockUrl})`);
-  const loaded = await Promise.all([rudiment.load(), sketchBlock.load()]);
-  loaded.forEach(f => document.fonts.add(f));
-}
 
 loadFonts().then(() => {
   new Phaser.Game(gameConfig);

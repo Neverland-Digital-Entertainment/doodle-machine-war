@@ -346,6 +346,10 @@ export class GameScene extends Phaser.Scene {
     if (this.isGameOver) return;
     this.isGameOver = true;
 
+    // Re-enable input so the restart button is always clickable,
+    // even if the game ended during the AI's turn (when input was disabled).
+    this.input.enabled = true;
+
     const overlay = this.add.rectangle(
       CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 2,
       CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT,
