@@ -241,15 +241,8 @@ export class RaycastSystem {
         return true;
 
       case 'base':
-        // Damage the base
+        // Damage the base (no damage number display)
         const defenderPlayerNum = hitResult.hitTarget;
-        if (scene && scene.feedbackSystem && hitResult.hitPoint) {
-          scene.feedbackSystem.showDamageNumber(
-            hitResult.hitPoint.x,
-            hitResult.hitPoint.y,
-            1
-          );
-        }
         this.gameState.damageBase(defenderPlayerNum);
         console.log(`Base damaged! ${defenderPlayerNum} HP: ${this.gameState.getPlayerHP(defenderPlayerNum)}`);
         return true;

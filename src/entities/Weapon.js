@@ -12,7 +12,7 @@ export class Weapon {
     this.playerNum = playerNum;
     this.x = x;
     this.y = y;
-    this.size = 64; // half-size = 128/2, hitbox matches 128×128 display size exactly
+    this.size = 36; // half-size ~72px hitbox — covers the plane body/wings, ignores transparent corners
     this.active = true;
 
     // Create sprite at 128×128

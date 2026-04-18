@@ -307,6 +307,10 @@ export class GameScene extends Phaser.Scene {
     this.attackMode = false;
     this.updateUI();
 
+    // If showGameOver() was triggered inside updateUI(), stop here.
+    // Any further turn logic (disabling input for AI) would break the restart button.
+    if (this.isGameOver) return;
+
     if (this.enableAI && this.gameStateManager.currentPlayer === PLAYERS.PLAYER_2) {
       this.isAITurn = true;
       this.input.enabled = false;
