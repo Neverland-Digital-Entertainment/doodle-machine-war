@@ -88,7 +88,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   drawBases() {
-    // Bases at full 256×256 — BASE_Y_OFFSET=160 centres them so the sprite fits within canvas
+    // Bases at 128×128 — BASE_Y_OFFSET=96 centres sprites within canvas
 
     // Player 1 (bottom)
     this.p1BaseSprite = this.add.image(
@@ -96,7 +96,7 @@ export class GameScene extends Phaser.Scene {
       CONFIG.CANVAS_HEIGHT - CONFIG.BASE_Y_OFFSET,
       'base-player'
     );
-    this.p1BaseSprite.setDisplaySize(256, 256);
+    this.p1BaseSprite.setDisplaySize(128, 128);
 
     // Player 2 (top)
     this.p2BaseSprite = this.add.image(
@@ -104,7 +104,7 @@ export class GameScene extends Phaser.Scene {
       CONFIG.BASE_Y_OFFSET,
       'base-enemy'
     );
-    this.p2BaseSprite.setDisplaySize(256, 256);
+    this.p2BaseSprite.setDisplaySize(128, 128);
   }
 
   /**

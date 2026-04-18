@@ -25,13 +25,13 @@ export class Shield {
       this.isTopPlayer = true;
     }
 
-    // Collision radius grows per layer — large enough to cover the 256px base
-    // Layer 1: 140, Layer 2: 185, Layer 3: 230
-    this.radius = 140 + (shieldLayer - 1) * 45;
+    // Collision radius covers the 128px base, grows per layer
+    // Layer 1: 75, Layer 2: 100, Layer 3: 130
+    this.radius = 75 + (shieldLayer - 1) * 27;
 
-    // Display size: 1:1 square ratio, slightly larger than radius × 2 so it visually covers the base
-    // Layer 1: 280, Layer 2: 350, Layer 3: 430
-    const displaySize = 280 + (shieldLayer - 1) * 75;
+    // Display size: 1:1 square ratio, matches collision diameter
+    // Layer 1: 150, Layer 2: 200, Layer 3: 260
+    const displaySize = 150 + (shieldLayer - 1) * 55;
 
     // Position the shield centred on the base — it overlaps the base sprite
     // (same placement logic as before: no extra Y offset needed since the

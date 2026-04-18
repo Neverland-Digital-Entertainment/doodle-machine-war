@@ -113,13 +113,13 @@ export class RaycastSystem {
       : CONFIG.BASE_Y_OFFSET;
 
     const baseX = CONFIG.CANVAS_WIDTH / 2;
-    const baseSize = 100; // matches 256px sprite (±100px around center)
+    const baseSize = 64; // half of 128px sprite — hitbox matches image size exactly
 
     const bounds = {
       minX: baseX - baseSize,
       maxX: baseX + baseSize,
-      minY: baseY - baseSize / 2,
-      maxY: baseY + baseSize / 2,
+      minY: baseY - baseSize,
+      maxY: baseY + baseSize,
     };
 
     const hit = this.rayRectIntersection(x1, y1, x2, y2, bounds);

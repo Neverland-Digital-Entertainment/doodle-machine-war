@@ -16,8 +16,8 @@ export const CONFIG = {
   ZONE_LINE_COLOR: 0xccbbaa,
 
   // Base
-  BASE_Y_OFFSET: 160, // Distance from canvas edge to base center (128 for half of 256px sprite + 32 margin)
-  BASE_SIZE: 128,     // Half of 256px sprite
+  BASE_Y_OFFSET: 96, // Distance from canvas edge to base center (64 for half of 128px sprite + 32 margin)
+  BASE_SIZE: 64,     // Half of 128px sprite
   BASE_HP_MAX: 4,
 
   // Units
