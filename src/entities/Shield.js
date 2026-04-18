@@ -3,8 +3,9 @@ import shieldUrl from '../images/shield.webp';
 
 /**
  * Shield - A defensive unit that blocks attacks
- * Displayed as shield.webp, scaled by layer (inner→outer = smaller→larger)
- * Collision uses the same semi-circle geometry as before.
+ * Displayed as shield.webp at 1:1 (square) aspect ratio, scaled by layer.
+ * Positioned to cover the base sprite (256×256).
+ * Collision uses a circle centered at the base.
  */
 export class Shield {
   constructor(scene, playerNum, shieldLayer = 1) {
@@ -13,7 +14,7 @@ export class Shield {
     this.shieldLayer = shieldLayer; // 1, 2, or 3
     this.active = true;
 
-    // Calculate center position (base center)
+    // Base center — must match GameScene base sprite positions
     if (playerNum === PLAYERS.PLAYER_1) {
       this.centerX = CONFIG.CANVAS_WIDTH / 2;
       this.centerY = CONFIG.CANVAS_HEIGHT - CONFIG.BASE_Y_OFFSET;
@@ -24,27 +25,29 @@ export class Shield {
       this.isTopPlayer = true;
     }
 
-    // Radius per layer: 50, 80, 110 — same as before for collision
-    this.radius = 50 + (shieldLayer - 1) * 30;
+    // Collision radius grows per layer — large enough to cover the 256px base
+    // Layer 1: 140, Layer 2: 185, Layer 3: 230
+    this.radius = 140 + (shieldLayer - 1) * 45;
 
-    // Display size grows with layer: layer 1 = small, layer 3 = large
-    const displaySize = 60 + (shieldLayer - 1) * 30; // 60, 90, 120
+    // Display size: 1:1 square ratio, slightly larger than radius × 2 so it visually covers the base
+    // Layer 1: 280, Layer 2: 350, Layer 3: 430
+    const displaySize = 280 + (shieldLayer - 1) * 75;
 
-    // Y offset so the shield sits just in front of the base
-    const yOffset = this.isTopPlayer ? this.radius * 0.5 : -this.radius * 0.5;
+    // Position the shield centred on the base — it overlaps the base sprite
+    // (same placement logic as before: no extra Y offset needed since the
+    //  collision circle is already centred at the base and the image covers it)
+    this.sprite = scene.add.image(this.centerX, this.centerY, 'shield');
+    this.sprite.setDisplaySize(displaySize, displaySize); // keep 1:1 ratio
+    this.sprite.setAlpha(0.85);
 
-    this.sprite = scene.add.image(this.centerX, this.centerY + yOffset, 'shield');
-    this.sprite.setDisplaySize(displaySize, displaySize * 0.45);
-    this.sprite.setAlpha(0.9);
-
-    // Flip vertically for Player 2 (top player)
+    // Player 2 (top) shield opens downward — flip vertically
     if (this.isTopPlayer) {
       this.sprite.setFlipY(true);
     }
   }
 
   /**
-   * Get bounding circle for collision detection — same contract as before
+   * Get bounding circle for collision detection
    */
   getBounds() {
     return {

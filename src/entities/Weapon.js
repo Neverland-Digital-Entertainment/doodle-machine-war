@@ -12,13 +12,13 @@ export class Weapon {
     this.playerNum = playerNum;
     this.x = x;
     this.y = y;
-    this.size = 22; // half-size for bounding box
+    this.size = 50; // half-size for collision hitbox (visual is 256×256 but hitbox kept small for gameplay)
     this.active = true;
 
-    // Create sprite using the pre-loaded texture
+    // Create sprite at full 256×256 original size
     const textureKey = playerNum === PLAYERS.PLAYER_1 ? 'plane-player' : 'plane-enemy';
     this.sprite = scene.add.image(x, y, textureKey);
-    this.sprite.setDisplaySize(this.size * 2, this.size * 2);
+    this.sprite.setDisplaySize(256, 256);
 
     // Player 2 (top/enemy) plane faces downward — rotate 180°
     if (playerNum === PLAYERS.PLAYER_2) {

@@ -113,7 +113,7 @@ export class RaycastSystem {
       : CONFIG.BASE_Y_OFFSET;
 
     const baseX = CONFIG.CANVAS_WIDTH / 2;
-    const baseSize = 30;
+    const baseSize = 100; // matches 256px sprite (±100px around center)
 
     const bounds = {
       minX: baseX - baseSize,

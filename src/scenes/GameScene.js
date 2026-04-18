@@ -88,8 +88,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   drawBases() {
-    const baseWidth = 120;
-    const baseHeight = 55;
+    // Bases at full 256×256 — BASE_Y_OFFSET=160 centres them so the sprite fits within canvas
 
     // Player 1 (bottom)
     this.p1BaseSprite = this.add.image(
@@ -97,7 +96,7 @@ export class GameScene extends Phaser.Scene {
       CONFIG.CANVAS_HEIGHT - CONFIG.BASE_Y_OFFSET,
       'base-player'
     );
-    this.p1BaseSprite.setDisplaySize(baseWidth, baseHeight);
+    this.p1BaseSprite.setDisplaySize(256, 256);
 
     // Player 2 (top)
     this.p2BaseSprite = this.add.image(
@@ -105,7 +104,7 @@ export class GameScene extends Phaser.Scene {
       CONFIG.BASE_Y_OFFSET,
       'base-enemy'
     );
-    this.p2BaseSprite.setDisplaySize(baseWidth, baseHeight);
+    this.p2BaseSprite.setDisplaySize(256, 256);
   }
 
   /**
@@ -125,10 +124,14 @@ export class GameScene extends Phaser.Scene {
     const totalW = letters.length * (cellW + gap) - gap;
     const startX = CONFIG.CANVAS_WIDTH / 2 - totalW / 2;
 
-    // Vertical position: near respective base, above/below the sprite
+    // HP cells hug the canvas edge:
+    //   Player 1 (bottom): below the base sprite → near canvas bottom
+    //   Player 2 (top): above the base sprite → near canvas top
+    // BASE_Y_OFFSET=160, sprite half=128 → base bottom edge at canvas_h-32 (P1)
+    // We place cells at canvas_h - 16 (P1) and 16 (P2)
     const cellCenterY = playerNum === PLAYERS.PLAYER_1
-      ? CONFIG.CANVAS_HEIGHT - CONFIG.BASE_Y_OFFSET - 40
-      : CONFIG.BASE_Y_OFFSET + 40;
+      ? CONFIG.CANVAS_HEIGHT - 16   // near bottom edge
+      : 16;                          // near top edge
 
     for (let i = 0; i < letters.length; i++) {
       const cx = startX + i * (cellW + gap) + cellW / 2;
