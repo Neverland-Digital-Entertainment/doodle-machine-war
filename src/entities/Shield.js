@@ -25,20 +25,22 @@ export class Shield {
       this.isTopPlayer = true;
     }
 
-    // Collision radius covers the 128px base, grows per layer
-    // Layer 1: 75, Layer 2: 100, Layer 3: 130
-    this.radius = 75 + (shieldLayer - 1) * 27;
+    // Collision radius — grows significantly per layer so outer shield reaches
+    // near the canvas left/right edges (canvas width = 512, center x = 256).
+    // Layer 1: 95  (190px wide, covers base + nearby weapons)
+    // Layer 2: 160 (320px wide, good mid-field coverage)
+    // Layer 3: 220 (440px wide, near canvas edges at x≈36 and x≈476)
+    this.radius = 95 + (shieldLayer - 1) * 62;
 
-    // Display size: 1:1 square ratio, matches collision diameter
-    // Layer 1: 150, Layer 2: 200, Layer 3: 260
-    const displaySize = 150 + (shieldLayer - 1) * 55;
+    // Display size matches the collision diameter so the visual fills the circle.
+    // Layer 1: 200, Layer 2: 330, Layer 3: 460
+    const displaySize = 200 + (shieldLayer - 1) * 130;
 
-    // Position the shield centred on the base — it overlaps the base sprite
-    // (same placement logic as before: no extra Y offset needed since the
-    //  collision circle is already centred at the base and the image covers it)
     this.sprite = scene.add.image(this.centerX, this.centerY, 'shield');
     this.sprite.setDisplaySize(displaySize, displaySize); // keep 1:1 ratio
     this.sprite.setAlpha(0.85);
+    // Draw shields below HP cells: explicit low depth (HP cells are at depth 10+)
+    this.sprite.setDepth(2);
 
     // Player 2 (top) shield opens downward — flip vertically
     if (this.isTopPlayer) {

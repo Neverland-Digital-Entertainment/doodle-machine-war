@@ -139,9 +139,9 @@ export class GameScene extends Phaser.Scene {
       const cx = startX + i * (cellW + gap) + cellW / 2;
       const alive = i >= deadCount; // cells 0..deadCount-1 are crossed, rest alive
 
-      // Pencil border
+      // Pencil border — depth 10+ ensures it sits above shields (depth 2) and bases (depth 0)
       const g = this.add.graphics();
-      g.setDepth(5);
+      g.setDepth(10);
       this._drawPencilRect(
         g, cx - cellW / 2, cy - cellH / 2, cellW, cellH,
         alive ? 0x2a2a2a : 0x888888,
@@ -156,13 +156,13 @@ export class GameScene extends Phaser.Scene {
         color: alive ? '#1a1a1a' : '#bbbbbb',
       });
       t.setOrigin(0.5);
-      t.setDepth(6);
+      t.setDepth(11);
       cellList.push(t);
 
       // Pencil-style red X for destroyed cells
       if (!alive) {
         const sg = this.add.graphics();
-        sg.setDepth(7);
+        sg.setDepth(12);
         // 3-pass jitter for pencil feel
         for (let pass = 0; pass < 3; pass++) {
           const jx = (Math.random() - 0.5) * 1.8;
