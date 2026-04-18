@@ -7,12 +7,16 @@ import { CombatSystem } from '../systems/CombatSystem.js';
 import { FeedbackSystem } from '../systems/FeedbackSystem.js';
 import { AISystem } from '../systems/AISystem.js';
 
-// Import images as data URLs so vite-plugin-singlefile inlines them into HTML
+// Images — imported so vite-plugin-singlefile inlines them as base64 data URLs
 import basePlayerUrl from '../images/base-player.webp';
 import baseEnemyUrl from '../images/base-enemy.webp';
 import planePlayerUrl from '../images/plane-player.webp';
 import planeEnemyUrl from '../images/plane-enemy.webp';
 import shieldUrl from '../images/shield.webp';
+
+// Font family names (loaded in main.js via FontFace API)
+const FONT_BODY  = 'rudiment_medium';
+const FONT_TITLE = 'sketch_block';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -25,7 +29,6 @@ export class GameScene extends Phaser.Scene {
     this.aiSystem = null;
     this.isAITurn = false;
     this.actionUsedThisTurn = false;
-    // HP cell display objects (graphics + text), rebuilt on each updateUI
     this.hpCellsP1 = [];
     this.hpCellsP2 = [];
   }
@@ -58,15 +61,18 @@ export class GameScene extends Phaser.Scene {
     this.add.text(
       CONFIG.CANVAS_WIDTH / 2,
       CONFIG.CANVAS_HEIGHT / 2 + 30,
-      '← 直線=護盾  三角=飛機  拖拉飛機=攻擊 →',
-      { font: '13px Arial', fill: '#999988', align: 'center' }
+      'Line = Shield   Triangle = Plane   Drag plane = Attack',
+      { fontFamily: FONT_BODY, fontSize: '13px', color: '#999988', align: 'center' }
     ).setOrigin(0.5);
 
-    // Debug key: D damages current player base
+    // Debug: D key damages current player's base
     this.input.keyboard.on('keydown-D', () => {
       this.gameStateManager.damageBase(this.gameStateManager.currentPlayer);
       this.updateUI();
     });
+
+    // Show YOUR TURN on game start
+    this.time.delayedCall(300, () => this.showTurnNotification(true));
   }
 
   drawLayout() {
@@ -88,8 +94,6 @@ export class GameScene extends Phaser.Scene {
   }
 
   drawBases() {
-    // Bases at 128×128 — BASE_Y_OFFSET=96 centres sprites within canvas
-
     // Player 1 (bottom)
     this.p1BaseSprite = this.add.image(
       CONFIG.CANVAS_WIDTH / 2,
@@ -108,75 +112,76 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Draw B/A/S/E HP cells with pencil-style borders
-   * Active cells are clear; destroyed cells are faded and crossed out
+   * Draw B/A/S/E HP cells with pencil-style borders.
+   * HP depletes from B first: when HP=3, B is crossed; HP=2, B+A; etc.
    */
   drawHPCells(playerNum, currentHP) {
     const cellList = playerNum === PLAYERS.PLAYER_1 ? this.hpCellsP1 : this.hpCellsP2;
-    // Destroy previous objects
     for (const obj of cellList) obj.destroy();
     cellList.length = 0;
 
     const letters = ['B', 'A', 'S', 'E'];
-    const cellW = 26;
-    const cellH = 28;
-    const gap = 4;
+    const cellW = 28;
+    const cellH = 30;
+    const gap = 5;
     const totalW = letters.length * (cellW + gap) - gap;
     const startX = CONFIG.CANVAS_WIDTH / 2 - totalW / 2;
 
-    // HP cells hug the canvas edge:
-    //   Player 1 (bottom): below the base sprite → near canvas bottom
-    //   Player 2 (top): above the base sprite → near canvas top
-    // BASE_Y_OFFSET=160, sprite half=128 → base bottom edge at canvas_h-32 (P1)
-    // We place cells at canvas_h - 16 (P1) and 16 (P2)
-    const cellCenterY = playerNum === PLAYERS.PLAYER_1
-      ? CONFIG.CANVAS_HEIGHT - 16   // near bottom edge
-      : 16;                          // near top edge
+    // Hug canvas edge — cells at very top/bottom
+    const cy = playerNum === PLAYERS.PLAYER_1
+      ? CONFIG.CANVAS_HEIGHT - 16
+      : 16;
+
+    // deadCount: how many cells are crossed (B first, then A, S, E)
+    const deadCount = CONFIG.BASE_HP_MAX - currentHP;
 
     for (let i = 0; i < letters.length; i++) {
       const cx = startX + i * (cellW + gap) + cellW / 2;
-      const cy = cellCenterY;
-      const alive = i < currentHP;
+      const alive = i >= deadCount; // cells 0..deadCount-1 are crossed, rest alive
 
-      // Pencil-border graphics
+      // Pencil border
       const g = this.add.graphics();
       g.setDepth(5);
       this._drawPencilRect(
-        g,
-        cx - cellW / 2,
-        cy - cellH / 2,
-        cellW,
-        cellH,
-        alive ? 0x2a2a2a : 0xbbbbbb,
+        g, cx - cellW / 2, cy - cellH / 2, cellW, cellH,
+        alive ? 0x2a2a2a : 0x888888,
         alive ? 0.85 : 0.4
       );
       cellList.push(g);
 
       // Letter
       const t = this.add.text(cx, cy, letters[i], {
-        font: `bold ${cellW - 6}px "Courier New", monospace`,
-        fill: alive ? '#1a1a1a' : '#bbbbbb',
+        fontFamily: FONT_BODY,
+        fontSize: `${cellW - 6}px`,
+        color: alive ? '#1a1a1a' : '#bbbbbb',
       });
       t.setOrigin(0.5);
       t.setDepth(6);
       cellList.push(t);
 
-      // Strike-through for destroyed cells
+      // Pencil-style red X for destroyed cells
       if (!alive) {
         const sg = this.add.graphics();
-        sg.lineStyle(2, 0x993333, 0.7);
-        sg.beginPath();
-        sg.moveTo(cx - cellW / 2 + 2, cy - cellH / 2 + 2);
-        sg.lineTo(cx + cellW / 2 - 2, cy + cellH / 2 - 2);
-        sg.strokePath();
         sg.setDepth(7);
+        // 3-pass jitter for pencil feel
+        for (let pass = 0; pass < 3; pass++) {
+          const jx = (Math.random() - 0.5) * 1.8;
+          const jy = (Math.random() - 0.5) * 1.8;
+          const a = pass === 0 ? 0.25 : pass === 1 ? 0.6 : 0.9;
+          const w = pass === 0 ? 3 : pass === 1 ? 2 : 1.5;
+          sg.lineStyle(w, 0xaa1111, a);
+          sg.beginPath();
+          sg.moveTo(cx - cellW / 2 + 3 + jx, cy - cellH / 2 + 3 + jy);
+          sg.lineTo(cx + cellW / 2 - 3 + jx, cy + cellH / 2 - 3 + jy);
+          sg.strokePath();
+        }
         cellList.push(sg);
       }
     }
   }
 
   /**
-   * Pencil-style rectangle: 2 slightly offset jittered passes
+   * Pencil-style rectangle: 2 offset passes for a sketchy look
    */
   _drawPencilRect(g, x, y, w, h, color, alpha) {
     for (let pass = 0; pass < 2; pass++) {
@@ -188,41 +193,19 @@ export class GameScene extends Phaser.Scene {
   }
 
   createUI() {
-    // Current player indicator
-    this.playerIndicator = this.add.text(
-      10, 10,
-      `Current Player: ${this.gameStateManager.currentPlayer}`,
-      { font: '18px Arial', fill: CONFIG.TEXT_COLOR }
-    );
-
-    // Turn counter
+    // Turn counter (top-left, rudiment font)
     this.turnIndicator = this.add.text(
-      10, 34,
+      10, 10,
       `Turn: ${this.gameStateManager.currentTurn}`,
-      { font: '18px Arial', fill: CONFIG.TEXT_COLOR }
+      { fontFamily: FONT_BODY, fontSize: '18px', color: CONFIG.TEXT_COLOR }
     );
-
-    // Unit counts
-    this.p1UnitsIndicator = this.add.text(
-      CONFIG.CANVAS_WIDTH - 10,
-      CONFIG.CANVAS_HEIGHT - 14,
-      'P1 Units: 0S 0W',
-      { font: '12px Arial', fill: '#446644' }
-    ).setOrigin(1, 1);
-
-    this.p2UnitsIndicator = this.add.text(
-      CONFIG.CANVAS_WIDTH - 10,
-      28,
-      'P2 Units: 0S 0W',
-      { font: '12px Arial', fill: '#664444' }
-    ).setOrigin(1, 0);
 
     // Centre instruction
     this.add.text(
       CONFIG.CANVAS_WIDTH / 2,
       CONFIG.CANVAS_HEIGHT / 2,
       'Draw on the screen to place units or attack',
-      { font: '15px Arial', fill: '#999988', align: 'center' }
+      { fontFamily: FONT_BODY, fontSize: '14px', color: '#999988', align: 'center' }
     ).setOrigin(0.5);
 
     // Initial HP cells
@@ -230,6 +213,36 @@ export class GameScene extends Phaser.Scene {
     this.hpCellsP2 = [];
     this.drawHPCells(PLAYERS.PLAYER_1, this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_1));
     this.drawHPCells(PLAYERS.PLAYER_2, this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_2));
+  }
+
+  /**
+   * Flash a turn notification (YOUR TURN / ENEMY TURN) centred on screen.
+   * Uses sketch_block font. Fades in then out automatically.
+   */
+  showTurnNotification(isYourTurn) {
+    const label = isYourTurn ? 'YOUR TURN' : 'ENEMY TURN';
+    const color = isYourTurn ? '#224499' : '#992222';
+
+    const notif = this.add.text(
+      CONFIG.CANVAS_WIDTH / 2,
+      CONFIG.CANVAS_HEIGHT / 2,
+      label,
+      { fontFamily: FONT_TITLE, fontSize: '52px', color, align: 'center' }
+    );
+    notif.setOrigin(0.5);
+    notif.setDepth(80);
+    notif.setAlpha(0);
+
+    // Fade in → hold → fade out
+    this.tweens.add({
+      targets: notif,
+      alpha: { from: 0, to: 1 },
+      duration: 250,
+      yoyo: true,
+      hold: 700,
+      ease: 'Quad.easeInOut',
+      onComplete: () => notif.destroy(),
+    });
   }
 
   /**
@@ -275,7 +288,6 @@ export class GameScene extends Phaser.Scene {
     this.drawingSystem.drawShape(shapeInfo);
 
     if (placed) {
-      this.updateUnitDisplay();
       this.markActionUsed();
     }
   }
@@ -300,7 +312,10 @@ export class GameScene extends Phaser.Scene {
       this.input.enabled = false;
       this.drawingSystem.isDrawing = false;
 
-      this.time.delayedCall(800, () => {
+      // Show ENEMY TURN notification
+      this.showTurnNotification(false);
+
+      this.time.delayedCall(1200, () => {
         if (this.aiSystem && !this.isGameOver) {
           this.aiSystem.executeTurn().then(() => {
             this.switchPlayer();
@@ -310,38 +325,25 @@ export class GameScene extends Phaser.Scene {
     } else {
       this.isAITurn = false;
       this.input.enabled = true;
+
+      // Show YOUR TURN notification
+      this.showTurnNotification(true);
     }
   }
 
   updateUI() {
-    const playerText = this.isAITurn ? 'AI (Player 2)' : `Player ${this.gameStateManager.currentPlayer}`;
-    this.playerIndicator.setText(`Current Player: ${playerText}`);
     this.turnIndicator.setText(`Turn: ${this.gameStateManager.currentTurn}`);
 
-    // Redraw HP cells to reflect current HP
     this.drawHPCells(PLAYERS.PLAYER_1, this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_1));
     this.drawHPCells(PLAYERS.PLAYER_2, this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_2));
-
-    this.updateUnitDisplay();
 
     if (this.gameStateManager.isGameOver()) {
       this.showGameOver();
     }
   }
 
-  updateUnitDisplay() {
-    const p1Shields = this.unitManager.getShieldsForPlayer(PLAYERS.PLAYER_1).length;
-    const p1Weapons = this.unitManager.getWeaponsForPlayer(PLAYERS.PLAYER_1).length;
-    const p2Shields = this.unitManager.getShieldsForPlayer(PLAYERS.PLAYER_2).length;
-    const p2Weapons = this.unitManager.getWeaponsForPlayer(PLAYERS.PLAYER_2).length;
-
-    this.p1UnitsIndicator.setText(`P1 Units: ${p1Shields}S ${p1Weapons}W`);
-    this.p2UnitsIndicator.setText(`P2 Units: ${p2Shields}S ${p2Weapons}W`);
-  }
-
   showGameOver() {
     if (this.isGameOver) return;
-
     this.isGameOver = true;
 
     const overlay = this.add.rectangle(
@@ -351,46 +353,40 @@ export class GameScene extends Phaser.Scene {
     );
     overlay.setDepth(100);
 
+    // Player 1 (human) wins → YOU WIN; Player 2 (AI) wins → YOU LOSS
     const winner = this.gameStateManager.getWinner();
-    const winnerText = winner === PLAYERS.PLAYER_1 ? 'Player 1' : 'Player 2';
-    const winnerColor = winner === PLAYERS.PLAYER_1 ? '#44cc44' : '#cc4444';
+    const resultText = winner === PLAYERS.PLAYER_1 ? 'YOU WIN' : 'YOU LOSS';
+    const resultColor = winner === PLAYERS.PLAYER_1 ? '#44cc44' : '#cc4444';
 
     const title = this.add.text(
       CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 2 - 60,
-      `${winnerText} Wins!`,
-      { font: 'bold 48px Arial', fill: winnerColor, align: 'center' }
+      resultText,
+      { fontFamily: FONT_TITLE, fontSize: '72px', color: resultColor, align: 'center' }
     );
     title.setOrigin(0.5);
     title.setDepth(101);
 
-    const message = this.add.text(
-      CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 2,
-      'Game Over',
-      { font: '32px Arial', fill: '#ffffff', align: 'center' }
-    );
-    message.setOrigin(0.5);
-    message.setDepth(101);
-
+    // Restart button
     const buttonBg = this.add.rectangle(
-      CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 2 + 80,
-      200, 50, 0x4444ff
+      CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 2 + 60,
+      220, 54, 0x334488
     );
     buttonBg.setDepth(101);
     buttonBg.setInteractive({ useHandCursor: true });
 
     const buttonText = this.add.text(
-      CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 2 + 80,
-      'Restart Game',
-      { font: '20px Arial', fill: '#ffffff', align: 'center' }
+      CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 2 + 60,
+      'RESTART',
+      { fontFamily: FONT_TITLE, fontSize: '32px', color: '#ffffff', align: 'center' }
     );
     buttonText.setOrigin(0.5);
     buttonText.setDepth(102);
 
-    buttonBg.on('pointerover', () => buttonBg.setFillStyle(0x6666ff));
-    buttonBg.on('pointerout', () => buttonBg.setFillStyle(0x4444ff));
+    buttonBg.on('pointerover', () => buttonBg.setFillStyle(0x5566bb));
+    buttonBg.on('pointerout', () => buttonBg.setFillStyle(0x334488));
     buttonBg.on('pointerdown', () => this.restartGame());
 
-    this.gameOverUI = { overlay, title, message, buttonBg, buttonText };
+    this.gameOverUI = { overlay, title, buttonBg, buttonText };
   }
 
   restartGame() {
