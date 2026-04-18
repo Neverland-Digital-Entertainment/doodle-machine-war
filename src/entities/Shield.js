@@ -1,9 +1,10 @@
 import { CONFIG, PLAYERS } from '../config.js';
+import shieldUrl from '../images/shield.webp';
 
 /**
  * Shield - A defensive unit that blocks attacks
- * Represented as a semi-circle around the player's base
- * Multiple shields create concentric rings
+ * Displayed as shield.webp, scaled by layer (inner→outer = smaller→larger)
+ * Collision uses the same semi-circle geometry as before.
  */
 export class Shield {
   constructor(scene, playerNum, shieldLayer = 1) {
@@ -14,52 +15,36 @@ export class Shield {
 
     // Calculate center position (base center)
     if (playerNum === PLAYERS.PLAYER_1) {
-      // Player 1 base is at bottom center
       this.centerX = CONFIG.CANVAS_WIDTH / 2;
       this.centerY = CONFIG.CANVAS_HEIGHT - CONFIG.BASE_Y_OFFSET;
       this.isTopPlayer = false;
     } else {
-      // Player 2 base is at top center
       this.centerX = CONFIG.CANVAS_WIDTH / 2;
       this.centerY = CONFIG.BASE_Y_OFFSET;
       this.isTopPlayer = true;
     }
 
-    // Calculate radius based on shield layer
-    // Layer 1: 50px, Layer 2: 80px, Layer 3: 110px
+    // Radius per layer: 50, 80, 110 — same as before for collision
     this.radius = 50 + (shieldLayer - 1) * 30;
 
-    // Create visual representation
-    this.graphics = scene.add.graphics();
-    this.draw();
-  }
+    // Display size grows with layer: layer 1 = small, layer 3 = large
+    const displaySize = 60 + (shieldLayer - 1) * 30; // 60, 90, 120
 
-  draw() {
-    this.graphics.clear();
-    if (!this.active) return;
+    // Y offset so the shield sits just in front of the base
+    const yOffset = this.isTopPlayer ? this.radius * 0.5 : -this.radius * 0.5;
 
-    // Draw semi-circle shield around base
-    this.graphics.fillStyle(0xffa500, 0.6);
-    this.graphics.lineStyle(2, 0xff8000, 1);
+    this.sprite = scene.add.image(this.centerX, this.centerY + yOffset, 'shield');
+    this.sprite.setDisplaySize(displaySize, displaySize * 0.45);
+    this.sprite.setAlpha(0.9);
 
-    // Draw semi-circle (different direction for top/bottom)
-    this.graphics.beginPath();
-
+    // Flip vertically for Player 2 (top player)
     if (this.isTopPlayer) {
-      // Player 2 (top): semi-circle facing down
-      this.graphics.arc(this.centerX, this.centerY, this.radius, 0, Math.PI, false);
-    } else {
-      // Player 1 (bottom): semi-circle facing up
-      this.graphics.arc(this.centerX, this.centerY, this.radius, Math.PI, 2 * Math.PI, false);
+      this.sprite.setFlipY(true);
     }
-
-    this.graphics.closePath();
-    this.graphics.fillPath();
-    this.graphics.strokePath();
   }
 
   /**
-   * Get bounding circle for collision detection
+   * Get bounding circle for collision detection — same contract as before
    */
   getBounds() {
     return {
@@ -81,17 +66,11 @@ export class Shield {
     const dy = py - this.centerY;
     const distSq = dx * dx + dy * dy;
 
-    // Point must be within radius
-    if (distSq > this.radius * this.radius) {
-      return false;
-    }
+    if (distSq > this.radius * this.radius) return false;
 
-    // Point must be on the correct side of the base
     if (this.isTopPlayer) {
-      // For top player, point must be above center (y < centerY)
       return py < this.centerY;
     } else {
-      // For bottom player, point must be below center (y > centerY)
       return py > this.centerY;
     }
   }
@@ -101,7 +80,9 @@ export class Shield {
    */
   destroy() {
     this.active = false;
-    this.graphics.clear();
-    this.graphics.destroy();
+    if (this.sprite) {
+      this.sprite.destroy();
+      this.sprite = null;
+    }
   }
 }

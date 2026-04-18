@@ -7,6 +7,13 @@ import { CombatSystem } from '../systems/CombatSystem.js';
 import { FeedbackSystem } from '../systems/FeedbackSystem.js';
 import { AISystem } from '../systems/AISystem.js';
 
+// Import images as data URLs so vite-plugin-singlefile inlines them into HTML
+import basePlayerUrl from '../images/base-player.webp';
+import baseEnemyUrl from '../images/base-enemy.webp';
+import planePlayerUrl from '../images/plane-player.webp';
+import planeEnemyUrl from '../images/plane-enemy.webp';
+import shieldUrl from '../images/shield.webp';
+
 export class GameScene extends Phaser.Scene {
   constructor() {
     super('GameScene');
@@ -14,53 +21,48 @@ export class GameScene extends Phaser.Scene {
     this.attackMode = false;
     this.gameOverUI = null;
     this.isGameOver = false;
-    this.enableAI = true; // Enable AI opponent
+    this.enableAI = true;
     this.aiSystem = null;
     this.isAITurn = false;
-    this.actionUsedThisTurn = false; // Track if player has taken an action this turn
+    this.actionUsedThisTurn = false;
+    // HP cell display objects (graphics + text), rebuilt on each updateUI
+    this.hpCellsP1 = [];
+    this.hpCellsP2 = [];
+  }
+
+  preload() {
+    this.load.image('base-player', basePlayerUrl);
+    this.load.image('base-enemy', baseEnemyUrl);
+    this.load.image('plane-player', planePlayerUrl);
+    this.load.image('plane-enemy', planeEnemyUrl);
+    this.load.image('shield', shieldUrl);
   }
 
   create() {
-    // Set background color
     this.cameras.main.setBackgroundColor(CONFIG.BACKGROUND_COLOR);
 
-    // Draw game layout
     this.drawLayout();
-
-    // Create UI
     this.createUI();
 
-    // Initialize unit manager
     this.unitManager = new UnitManager(this);
-
-    // Initialize combat system
     this.combatSystem = new CombatSystem(this, this.unitManager, this.gameStateManager);
-
-    // Initialize feedback system
     this.feedbackSystem = new FeedbackSystem(this);
-
-    // Initialize drawing system
     this.drawingSystem = new DrawingSystem(this);
 
-    // Initialize AI system
     if (this.enableAI) {
       this.aiSystem = new AISystem(this.unitManager, this.combatSystem, this.gameStateManager);
-      this.isAITurn = false; // Start with player 1 (human)
+      this.isAITurn = false;
     }
 
-    // Test instructions
+    // Hint text
     this.add.text(
       CONFIG.CANVAS_WIDTH / 2,
       CONFIG.CANVAS_HEIGHT / 2 + 30,
-      '← Try drawing: lines, triangles, circles →',
-      {
-        font: '14px Arial',
-        fill: '#cccccc',
-        align: 'center',
-      }
+      '← 直線=護盾  三角=飛機  拖拉飛機=攻擊 →',
+      { font: '13px Arial', fill: '#999988', align: 'center' }
     ).setOrigin(0.5);
 
-    // Test keyboard: D to damage current player's base
+    // Debug key: D damages current player base
     this.input.keyboard.on('keydown-D', () => {
       this.gameStateManager.damageBase(this.gameStateManager.currentPlayer);
       this.updateUI();
@@ -70,147 +72,175 @@ export class GameScene extends Phaser.Scene {
   drawLayout() {
     const graphics = this.add.graphics();
 
-    // Draw dividing line
-    graphics.lineStyle(2, CONFIG.DIVIDER_COLOR);
+    // Divider
+    graphics.lineStyle(2, CONFIG.DIVIDER_COLOR, 0.7);
     graphics.beginPath();
     graphics.moveTo(0, CONFIG.DIVIDER_Y);
     graphics.lineTo(CONFIG.CANVAS_WIDTH, CONFIG.DIVIDER_Y);
     graphics.strokePath();
 
-    // Draw zone boundaries (optional visual guides)
-    graphics.lineStyle(1, CONFIG.ZONE_LINE_COLOR);
-
-    // Enemy zone outline
+    // Zone boundaries (subtle)
+    graphics.lineStyle(1, CONFIG.ZONE_LINE_COLOR, 0.5);
     graphics.strokeRect(0, 0, CONFIG.CANVAS_WIDTH, CONFIG.ENEMY_ZONE_HEIGHT);
-
-    // Player zone outline
     graphics.strokeRect(0, CONFIG.DIVIDER_Y, CONFIG.CANVAS_WIDTH, CONFIG.PLAYER_ZONE_HEIGHT);
 
-    // Draw base HP nodes for both players
-    this.drawBases(graphics);
+    this.drawBases();
   }
 
-  drawBases(graphics) {
-    const nodeSize = 20;
-    const nodeSpacing = 10;
-    const totalWidth = (nodeSize + nodeSpacing) * CONFIG.BASE_HP_MAX - nodeSpacing;
+  drawBases() {
+    const baseWidth = 120;
+    const baseHeight = 55;
 
-    // Player 1 base (bottom)
-    const p1BaseX = (CONFIG.CANVAS_WIDTH - totalWidth) / 2;
-    const p1BaseY = CONFIG.CANVAS_HEIGHT - CONFIG.BASE_Y_OFFSET;
+    // Player 1 (bottom)
+    this.p1BaseSprite = this.add.image(
+      CONFIG.CANVAS_WIDTH / 2,
+      CONFIG.CANVAS_HEIGHT - CONFIG.BASE_Y_OFFSET,
+      'base-player'
+    );
+    this.p1BaseSprite.setDisplaySize(baseWidth, baseHeight);
 
-    graphics.fillStyle(0x00ff00); // Green for player base
-    for (let i = 0; i < this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_1); i++) {
-      const x = p1BaseX + i * (nodeSize + nodeSpacing);
-      graphics.fillRect(x, p1BaseY - nodeSize / 2, nodeSize, nodeSize);
+    // Player 2 (top)
+    this.p2BaseSprite = this.add.image(
+      CONFIG.CANVAS_WIDTH / 2,
+      CONFIG.BASE_Y_OFFSET,
+      'base-enemy'
+    );
+    this.p2BaseSprite.setDisplaySize(baseWidth, baseHeight);
+  }
+
+  /**
+   * Draw B/A/S/E HP cells with pencil-style borders
+   * Active cells are clear; destroyed cells are faded and crossed out
+   */
+  drawHPCells(playerNum, currentHP) {
+    const cellList = playerNum === PLAYERS.PLAYER_1 ? this.hpCellsP1 : this.hpCellsP2;
+    // Destroy previous objects
+    for (const obj of cellList) obj.destroy();
+    cellList.length = 0;
+
+    const letters = ['B', 'A', 'S', 'E'];
+    const cellW = 26;
+    const cellH = 28;
+    const gap = 4;
+    const totalW = letters.length * (cellW + gap) - gap;
+    const startX = CONFIG.CANVAS_WIDTH / 2 - totalW / 2;
+
+    // Vertical position: near respective base, above/below the sprite
+    const cellCenterY = playerNum === PLAYERS.PLAYER_1
+      ? CONFIG.CANVAS_HEIGHT - CONFIG.BASE_Y_OFFSET - 40
+      : CONFIG.BASE_Y_OFFSET + 40;
+
+    for (let i = 0; i < letters.length; i++) {
+      const cx = startX + i * (cellW + gap) + cellW / 2;
+      const cy = cellCenterY;
+      const alive = i < currentHP;
+
+      // Pencil-border graphics
+      const g = this.add.graphics();
+      g.setDepth(5);
+      this._drawPencilRect(
+        g,
+        cx - cellW / 2,
+        cy - cellH / 2,
+        cellW,
+        cellH,
+        alive ? 0x2a2a2a : 0xbbbbbb,
+        alive ? 0.85 : 0.4
+      );
+      cellList.push(g);
+
+      // Letter
+      const t = this.add.text(cx, cy, letters[i], {
+        font: `bold ${cellW - 6}px "Courier New", monospace`,
+        fill: alive ? '#1a1a1a' : '#bbbbbb',
+      });
+      t.setOrigin(0.5);
+      t.setDepth(6);
+      cellList.push(t);
+
+      // Strike-through for destroyed cells
+      if (!alive) {
+        const sg = this.add.graphics();
+        sg.lineStyle(2, 0x993333, 0.7);
+        sg.beginPath();
+        sg.moveTo(cx - cellW / 2 + 2, cy - cellH / 2 + 2);
+        sg.lineTo(cx + cellW / 2 - 2, cy + cellH / 2 - 2);
+        sg.strokePath();
+        sg.setDepth(7);
+        cellList.push(sg);
+      }
     }
+  }
 
-    // Player 2 base (top)
-    const p2BaseX = (CONFIG.CANVAS_WIDTH - totalWidth) / 2;
-    const p2BaseY = CONFIG.BASE_Y_OFFSET;
-
-    graphics.fillStyle(0xff0000); // Red for enemy base
-    for (let i = 0; i < this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_2); i++) {
-      const x = p2BaseX + i * (nodeSize + nodeSpacing);
-      graphics.fillRect(x, p2BaseY - nodeSize / 2, nodeSize, nodeSize);
+  /**
+   * Pencil-style rectangle: 2 slightly offset jittered passes
+   */
+  _drawPencilRect(g, x, y, w, h, color, alpha) {
+    for (let pass = 0; pass < 2; pass++) {
+      const jx = (Math.random() - 0.5) * 1.2;
+      const jy = (Math.random() - 0.5) * 1.2;
+      g.lineStyle(pass === 0 ? 2 : 1.5, color, pass === 0 ? alpha * 0.5 : alpha);
+      g.strokeRect(x + jx, y + jy, w, h);
     }
   }
 
   createUI() {
     // Current player indicator
     this.playerIndicator = this.add.text(
-      10,
-      10,
+      10, 10,
       `Current Player: ${this.gameStateManager.currentPlayer}`,
-      {
-        font: '20px Arial',
-        fill: CONFIG.TEXT_COLOR,
-      }
+      { font: '18px Arial', fill: CONFIG.TEXT_COLOR }
     );
 
     // Turn counter
     this.turnIndicator = this.add.text(
-      10,
-      40,
+      10, 34,
       `Turn: ${this.gameStateManager.currentTurn}`,
-      {
-        font: '20px Arial',
-        fill: CONFIG.TEXT_COLOR,
-      }
+      { font: '18px Arial', fill: CONFIG.TEXT_COLOR }
     );
 
-    // Player 1 HP
-    this.hp1Indicator = this.add.text(
-      CONFIG.CANVAS_WIDTH - 150,
-      CONFIG.CANVAS_HEIGHT - 50,
-      `Player 1 HP: ${this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_1)}`,
-      {
-        font: '16px Arial',
-        fill: '#00ff00',
-      }
-    );
-
-    // Player 2 HP
-    this.hp2Indicator = this.add.text(
-      CONFIG.CANVAS_WIDTH - 150,
-      10,
-      `Player 2 HP: ${this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_2)}`,
-      {
-        font: '16px Arial',
-        fill: '#ff0000',
-      }
-    );
-
-    // Player 1 Units (shields + weapons)
+    // Unit counts
     this.p1UnitsIndicator = this.add.text(
-      CONFIG.CANVAS_WIDTH - 150,
-      CONFIG.CANVAS_HEIGHT - 20,
-      `P1 Units: 0S 0W`,
-      {
-        font: '12px Arial',
-        fill: '#00ff00',
-      }
-    );
+      CONFIG.CANVAS_WIDTH - 10,
+      CONFIG.CANVAS_HEIGHT - 14,
+      'P1 Units: 0S 0W',
+      { font: '12px Arial', fill: '#446644' }
+    ).setOrigin(1, 1);
 
-    // Player 2 Units (shields + weapons)
     this.p2UnitsIndicator = this.add.text(
-      CONFIG.CANVAS_WIDTH - 150,
-      40,
-      `P2 Units: 0S 0W`,
-      {
-        font: '12px Arial',
-        fill: '#ff0000',
-      }
-    );
+      CONFIG.CANVAS_WIDTH - 10,
+      28,
+      'P2 Units: 0S 0W',
+      { font: '12px Arial', fill: '#664444' }
+    ).setOrigin(1, 0);
 
-    // Instructions
+    // Centre instruction
     this.add.text(
       CONFIG.CANVAS_WIDTH / 2,
       CONFIG.CANVAS_HEIGHT / 2,
       'Draw on the screen to place units or attack',
-      {
-        font: '16px Arial',
-        fill: CONFIG.TEXT_COLOR,
-        align: 'center',
-      }
+      { font: '15px Arial', fill: '#999988', align: 'center' }
     ).setOrigin(0.5);
+
+    // Initial HP cells
+    this.hpCellsP1 = [];
+    this.hpCellsP2 = [];
+    this.drawHPCells(PLAYERS.PLAYER_1, this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_1));
+    this.drawHPCells(PLAYERS.PLAYER_2, this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_2));
   }
 
   /**
-   * Called when a stroke is completed and shape is recognized
+   * Called when a stroke is completed
    */
   onStrokeComplete(shapeInfo, stroke) {
-    // Ignore if game is over or action already used
     if (this.isGameOver || this.actionUsedThisTurn) return;
 
     const currentPlayer = this.gameStateManager.currentPlayer;
 
-    // In attack mode: perform attack from stroke start to end (no shape detection needed)
     if (this.attackMode) {
       if (stroke.length >= 2) {
         const startPoint = stroke[0];
         const endPoint = stroke[stroke.length - 1];
-        // Clear drawing system preview before attack visualization
         this.drawingSystem.previewGraphics.clear();
         this.combatSystem.performAttack(currentPlayer, startPoint.x, startPoint.y, endPoint.x, endPoint.y);
         this.markActionUsed();
@@ -218,56 +248,39 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    // Normal mode requires shape detection
     if (!shapeInfo.type) return;
 
     const center = shapeInfo.center;
-
-    // Normal mode: place units
     let placed = false;
 
-    // Place unit based on shape type
     switch (shapeInfo.type) {
       case 'line':
-        // Line → Shield (concentric around base)
         placed = this.unitManager.placeShield(currentPlayer);
-        if (placed) {
-          console.log(`Shield placed for ${currentPlayer}`);
-        }
+        if (placed) console.log(`Shield placed for ${currentPlayer}`);
         break;
 
       case 'triangle':
-        // Triangle → Weapon
         placed = this.unitManager.placeWeapon(currentPlayer, center.x, center.y);
-        if (placed) {
-          console.log(`Weapon placed for ${currentPlayer}`);
-        }
+        if (placed) console.log(`Weapon placed for ${currentPlayer}`);
         break;
 
       case 'circle':
-        // Circle → Reserved for future abilities
         console.log('Circle: reserved for special abilities');
         break;
     }
 
-    // Visual feedback - show a marker at the detection point
     this.drawingSystem.drawShape(shapeInfo);
 
-    // Update UI to show unit counts
     if (placed) {
       this.updateUnitDisplay();
       this.markActionUsed();
     }
   }
 
-  /**
-   * Mark that player has used their action for this turn
-   */
   markActionUsed() {
     this.actionUsedThisTurn = true;
     this.updateUI();
 
-    // Auto switch turn after a short delay
     this.time.delayedCall(800, () => {
       this.switchPlayer();
     });
@@ -279,17 +292,14 @@ export class GameScene extends Phaser.Scene {
     this.attackMode = false;
     this.updateUI();
 
-    // Check if it's AI turn
     if (this.enableAI && this.gameStateManager.currentPlayer === PLAYERS.PLAYER_2) {
       this.isAITurn = true;
       this.input.enabled = false;
       this.drawingSystem.isDrawing = false;
 
-      // Execute AI turn after a delay
       this.time.delayedCall(800, () => {
         if (this.aiSystem && !this.isGameOver) {
           this.aiSystem.executeTurn().then(() => {
-            // AI turn complete, switch back to player
             this.switchPlayer();
           });
         }
@@ -304,11 +314,13 @@ export class GameScene extends Phaser.Scene {
     const playerText = this.isAITurn ? 'AI (Player 2)' : `Player ${this.gameStateManager.currentPlayer}`;
     this.playerIndicator.setText(`Current Player: ${playerText}`);
     this.turnIndicator.setText(`Turn: ${this.gameStateManager.currentTurn}`);
-    this.hp1Indicator.setText(`Player 1 HP: ${this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_1)}`);
-    this.hp2Indicator.setText(`Player 2 HP: ${this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_2)}`);
+
+    // Redraw HP cells to reflect current HP
+    this.drawHPCells(PLAYERS.PLAYER_1, this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_1));
+    this.drawHPCells(PLAYERS.PLAYER_2, this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_2));
+
     this.updateUnitDisplay();
 
-    // Check for game over condition
     if (this.gameStateManager.isGameOver()) {
       this.showGameOver();
     }
@@ -324,123 +336,71 @@ export class GameScene extends Phaser.Scene {
     this.p2UnitsIndicator.setText(`P2 Units: ${p2Shields}S ${p2Weapons}W`);
   }
 
-  /**
-   * Show game over screen with winner announcement
-   */
   showGameOver() {
-    if (this.isGameOver) return; // Already showing game over
+    if (this.isGameOver) return;
 
     this.isGameOver = true;
 
-    // Create overlay background (non-interactive)
     const overlay = this.add.rectangle(
-      CONFIG.CANVAS_WIDTH / 2,
-      CONFIG.CANVAS_HEIGHT / 2,
-      CONFIG.CANVAS_WIDTH,
-      CONFIG.CANVAS_HEIGHT,
-      0x000000,
-      0.7
+      CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 2,
+      CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT,
+      0x000000, 0.65
     );
     overlay.setDepth(100);
 
-    // Get winner
     const winner = this.gameStateManager.getWinner();
     const winnerText = winner === PLAYERS.PLAYER_1 ? 'Player 1' : 'Player 2';
-    const winnerColor = winner === PLAYERS.PLAYER_1 ? '#00ff00' : '#ff0000';
+    const winnerColor = winner === PLAYERS.PLAYER_1 ? '#44cc44' : '#cc4444';
 
-    // Display winner text
     const title = this.add.text(
-      CONFIG.CANVAS_WIDTH / 2,
-      CONFIG.CANVAS_HEIGHT / 2 - 60,
+      CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 2 - 60,
       `${winnerText} Wins!`,
-      {
-        font: 'bold 48px Arial',
-        fill: winnerColor,
-        align: 'center',
-      }
+      { font: 'bold 48px Arial', fill: winnerColor, align: 'center' }
     );
     title.setOrigin(0.5);
     title.setDepth(101);
 
-    // Display game over message
     const message = this.add.text(
-      CONFIG.CANVAS_WIDTH / 2,
-      CONFIG.CANVAS_HEIGHT / 2,
+      CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 2,
       'Game Over',
-      {
-        font: '32px Arial',
-        fill: '#ffffff',
-        align: 'center',
-      }
+      { font: '32px Arial', fill: '#ffffff', align: 'center' }
     );
     message.setOrigin(0.5);
     message.setDepth(101);
 
-    // Create restart button
-    const buttonX = CONFIG.CANVAS_WIDTH / 2;
-    const buttonY = CONFIG.CANVAS_HEIGHT / 2 + 80;
-    const buttonWidth = 200;
-    const buttonHeight = 50;
-
     const buttonBg = this.add.rectangle(
-      buttonX,
-      buttonY,
-      buttonWidth,
-      buttonHeight,
-      0x4444ff
+      CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 2 + 80,
+      200, 50, 0x4444ff
     );
     buttonBg.setDepth(101);
     buttonBg.setInteractive({ useHandCursor: true });
 
     const buttonText = this.add.text(
-      buttonX,
-      buttonY,
+      CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 2 + 80,
       'Restart Game',
-      {
-        font: '20px Arial',
-        fill: '#ffffff',
-        align: 'center',
-      }
+      { font: '20px Arial', fill: '#ffffff', align: 'center' }
     );
     buttonText.setOrigin(0.5);
     buttonText.setDepth(102);
 
-    // Handle button hover
-    buttonBg.on('pointerover', () => {
-      buttonBg.setFillStyle(0x6666ff);
-    });
+    buttonBg.on('pointerover', () => buttonBg.setFillStyle(0x6666ff));
+    buttonBg.on('pointerout', () => buttonBg.setFillStyle(0x4444ff));
+    buttonBg.on('pointerdown', () => this.restartGame());
 
-    buttonBg.on('pointerout', () => {
-      buttonBg.setFillStyle(0x4444ff);
-    });
-
-    // Handle button click
-    buttonBg.on('pointerdown', () => {
-      this.restartGame();
-    });
-
-    // Store game over UI elements for potential cleanup
     this.gameOverUI = { overlay, title, message, buttonBg, buttonText };
   }
 
-  /**
-   * Restart the game
-   */
   restartGame() {
     this.gameStateManager.reset();
     this.unitManager.clear();
     this.isGameOver = false;
     this.attackMode = false;
     this.isAITurn = false;
-
-    // Re-enable input
     this.input.enabled = true;
-
-    // Restart the scene
     this.scene.restart();
   }
 
   update() {
-    // Game loop - will be populated in later phases
+    // Game loop
   }
 }

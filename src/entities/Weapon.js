@@ -1,8 +1,10 @@
-import { CONFIG } from '../config.js';
+import { CONFIG, PLAYERS } from '../config.js';
+import planePlayerUrl from '../images/plane-player.webp';
+import planeEnemyUrl from '../images/plane-enemy.webp';
 
 /**
  * Weapon - An offensive unit that attacks enemies
- * Represented as a triangle (fighter)
+ * Represented as a plane image (fighter)
  */
 export class Weapon {
   constructor(scene, playerNum, x, y) {
@@ -10,34 +12,23 @@ export class Weapon {
     this.playerNum = playerNum;
     this.x = x;
     this.y = y;
-    this.size = 15;
+    this.size = 22; // half-size for bounding box
     this.active = true;
 
-    // Create visual representation
-    this.graphics = scene.add.graphics();
-    this.draw();
-  }
+    // Create sprite using the pre-loaded texture
+    const textureKey = playerNum === PLAYERS.PLAYER_1 ? 'plane-player' : 'plane-enemy';
+    this.sprite = scene.add.image(x, y, textureKey);
+    this.sprite.setDisplaySize(this.size * 2, this.size * 2);
 
-  draw() {
-    this.graphics.clear();
-    if (!this.active) return;
-
-    // Draw weapon as red triangle (fighter)
-    this.graphics.fillStyle(0xff0000, 0.8);
-    this.graphics.beginPath();
-    this.graphics.moveTo(this.x, this.y - this.size);
-    this.graphics.lineTo(this.x + this.size, this.y + this.size);
-    this.graphics.lineTo(this.x - this.size, this.y + this.size);
-    this.graphics.closePath();
-    this.graphics.fillPath();
-
-    // Draw border
-    this.graphics.lineStyle(2, 0xcc0000, 1);
-    this.graphics.strokePath();
+    // Player 2 (top/enemy) plane faces downward — rotate 180°
+    if (playerNum === PLAYERS.PLAYER_2) {
+      this.sprite.setAngle(180);
+    }
   }
 
   /**
    * Get bounding box for collision detection
+   * Must match contract expected by RaycastSystem and DrawingSystem
    */
   getBounds() {
     return {
@@ -63,7 +54,9 @@ export class Weapon {
    */
   destroy() {
     this.active = false;
-    this.graphics.clear();
-    this.graphics.destroy();
+    if (this.sprite) {
+      this.sprite.destroy();
+      this.sprite = null;
+    }
   }
 }

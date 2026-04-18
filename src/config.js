@@ -10,10 +10,10 @@ export const CONFIG = {
   PLAYER_ZONE_HEIGHT: 448,
 
   // Colors
-  BACKGROUND_COLOR: 0x2a2a2a,
-  DIVIDER_COLOR: 0xffffff,
-  TEXT_COLOR: '#ffffff',
-  ZONE_LINE_COLOR: 0x444444,
+  BACKGROUND_COLOR: 0xf5f0e8,  // Paper color
+  DIVIDER_COLOR: 0x888888,
+  TEXT_COLOR: '#2a2a2a',        // Dark ink
+  ZONE_LINE_COLOR: 0xccbbaa,
 
   // Base
   BASE_Y_OFFSET: 40, // Distance from bottom
@@ -27,8 +27,8 @@ export const CONFIG = {
 
   // Drawing
   STROKE_WIDTH: 3,
-  STROKE_COLOR: 0xffa500, // Orange
-  MIN_STROKE_LENGTH: 20, // Minimum distance to count as valid stroke
+  STROKE_COLOR: 0x2a2a2a,  // Dark pencil color
+  MIN_STROKE_LENGTH: 20,   // Minimum distance to count as valid stroke
 
   // Physics/Collision
   COLLISION_PADDING: 10,
