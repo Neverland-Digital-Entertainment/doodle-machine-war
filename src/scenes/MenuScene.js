@@ -77,7 +77,7 @@ export class MenuScene extends Phaser.Scene {
     cy += 30;
 
     const goalBody = this._txt(PX + PAD, cy,
-      'Erase all 4 letters of the enemy\'s BASE.\nDestroy theirs before they destroy yours!',
+      'Attack the enemy\'s BASE until all 4 letters — B, A, S, E — are crossed out. Each hit removes one letter. Cross them all out before the enemy does the same to yours!',
       FONT_BODY, 18, '#2a2a2a', d + 1, PW - PAD * 2);
     objs.push(goalBody);
     cy += goalBody.height + 14;
@@ -95,13 +95,13 @@ export class MenuScene extends Phaser.Scene {
         draw: (g, cx, rcY) => this._sketchLine(g, cx, rcY),
         name: 'SHIELD',
         nameColor: '#1a5fa8',
-        desc: 'Draw a HORIZONTAL LINE to place a Shield. Shields block incoming attacks from the enemy.',
+        desc: 'Draw a HORIZONTAL LINE to place a Shield. Shields protect your Base from enemy attacks.',
       },
       {
         draw: (g, cx, rcY) => this._sketchTriangle(g, cx, rcY),
         name: 'FIGHTER',
         nameColor: '#2a7a2a',
-        desc: 'Draw a TRIANGLE to deploy a Fighter. Use it to launch attacks toward enemy targets.',
+        desc: 'Draw a TRIANGLE to deploy a Fighter. Draw a line FROM your Fighter to attack — target the enemy\'s Fighters, Shields, or Base!',
       },
       {
         draw: (g, cx, rcY) => this._sketchCircle2(g, cx, rcY),
@@ -161,7 +161,7 @@ export class MenuScene extends Phaser.Scene {
     objs.push(ag);
 
     const atkDesc = this._txt(PX + PAD, cy + 62,
-      'Switch to Attack Mode, then draw a line FROM your Fighter TOWARD the enemy target.',
+      'Draw a line FROM your Fighter toward any enemy — their Fighters, Shields, or Base. The first thing your line hits takes the damage!',
       FONT_BODY, 17, '#2a2a2a', d + 1, PW - PAD * 2);
     objs.push(atkDesc);
 
