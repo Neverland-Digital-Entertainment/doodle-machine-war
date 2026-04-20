@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { MenuScene } from './scenes/MenuScene.js';
 import { GameScene } from './scenes/GameScene.js';
 import { CONFIG } from './config.js';
 
@@ -21,7 +22,7 @@ const gameConfig = {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
-  scene: [GameScene],
+  scene: [MenuScene, GameScene],
 };
 
 loadFonts().then(() => {
