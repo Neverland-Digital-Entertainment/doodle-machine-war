@@ -198,10 +198,7 @@ export class DrawingSystem {
 
     switch (shapeInfo.type) {
       case 'line':
-        g.beginPath();
-        g.moveTo(0, shapeInfo.center.y);
-        g.lineTo(CONFIG.CANVAS_WIDTH, shapeInfo.center.y);
-        g.strokePath();
+        // No line drawn — shield spawn effect is the visual feedback
         break;
 
       case 'triangle': {

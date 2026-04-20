@@ -14,27 +14,26 @@ export class Shield {
     this.shieldLayer = shieldLayer; // 1, 2, or 3
     this.active = true;
 
-    // Base center — must match GameScene base sprite positions
+    // Shield center — sits slightly above/below the base sprite center
     if (playerNum === PLAYERS.PLAYER_1) {
       this.centerX = CONFIG.CANVAS_WIDTH / 2;
-      this.centerY = CONFIG.CANVAS_HEIGHT - CONFIG.BASE_Y_OFFSET;
+      this.centerY = CONFIG.CANVAS_HEIGHT - CONFIG.SHIELD_BASE_Y_OFFSET;
       this.isTopPlayer = false;
     } else {
       this.centerX = CONFIG.CANVAS_WIDTH / 2;
-      this.centerY = CONFIG.BASE_Y_OFFSET;
+      this.centerY = CONFIG.SHIELD_BASE_Y_OFFSET - 22;
       this.isTopPlayer = true;
     }
 
-    // Collision radius — grows significantly per layer so outer shield reaches
-    // near the canvas left/right edges (canvas width = 512, center x = 256).
-    // Layer 1: 95  (190px wide, covers base + nearby weapons)
-    // Layer 2: 160 (320px wide, good mid-field coverage)
-    // Layer 3: 220 (440px wide, near canvas edges at x≈36 and x≈476)
-    this.radius = 95 + (shieldLayer - 1) * 62;
+    // Collision radius per layer:
+    // Layer 1: 100  (200px wide — tight around base)
+    // Layer 2: 132  (264px wide — mid-field)
+    // Layer 3: 165  (330px wide — broader coverage)
+    const radii = [100, 132, 165];
+    this.radius = radii[shieldLayer - 1] || 100;
 
-    // Display size matches the collision diameter so the visual fills the circle.
-    // Layer 1: 200, Layer 2: 330, Layer 3: 460
-    const displaySize = 200 + (shieldLayer - 1) * 130;
+    // Display diameter = radius × 2 so the visual fills its collision circle exactly.
+    const displaySize = this.radius * 2;
 
     this.sprite = scene.add.image(this.centerX, this.centerY, 'shield');
     this.sprite.setDisplaySize(displaySize, displaySize); // keep 1:1 ratio
@@ -42,10 +41,7 @@ export class Shield {
     // Draw shields below HP cells: explicit low depth (HP cells are at depth 10+)
     this.sprite.setDepth(2);
 
-    // Player 2 (top) shield opens downward — flip vertically
-    if (this.isTopPlayer) {
-      this.sprite.setFlipY(true);
-    }
+    // No flip needed — shield image works for both orientations
   }
 
   /**

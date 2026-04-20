@@ -208,44 +208,19 @@ export class RaycastSystem {
   /**
    * Resolve hit: destroy target or damage base
    */
+  /**
+   * resolveHit is now only used for base damage from within CombatSystem.
+   * Unit removal (shield/weapon) is handled directly in CombatSystem.performAttack
+   * so sprites can be animated before destruction.
+   */
   resolveHit(hitResult, attackerPlayerNum, scene = null) {
-    if (!hitResult.hitTarget) return false; // No hit
+    if (!hitResult.hitTarget) return false;
 
-    switch (hitResult.targetType) {
-      case 'shield':
-        // Destroy the shield
-        const shieldObj = hitResult.targetObject;
-        if (scene && scene.feedbackSystem) {
-          scene.feedbackSystem.showDestructionEffect(
-            shieldObj.centerX,
-            shieldObj.centerY,
-            0xffa500
-          );
-        }
-        this.unitManager.removeShield(shieldObj);
-        console.log('Shield destroyed!');
-        return true;
-
-      case 'weapon':
-        // Destroy the weapon
-        const weaponObj = hitResult.targetObject;
-        if (scene && scene.feedbackSystem) {
-          scene.feedbackSystem.showDestructionEffect(
-            weaponObj.x,
-            weaponObj.y,
-            0xff0000
-          );
-        }
-        this.unitManager.removeWeapon(weaponObj);
-        console.log('Weapon destroyed!');
-        return true;
-
-      case 'base':
-        // Damage the base (no damage number display)
-        const defenderPlayerNum = hitResult.hitTarget;
-        this.gameState.damageBase(defenderPlayerNum);
-        console.log(`Base damaged! ${defenderPlayerNum} HP: ${this.gameState.getPlayerHP(defenderPlayerNum)}`);
-        return true;
+    if (hitResult.targetType === 'base') {
+      const defenderPlayerNum = hitResult.hitTarget;
+      this.gameState.damageBase(defenderPlayerNum);
+      console.log(`Base damaged! HP: ${this.gameState.getPlayerHP(defenderPlayerNum)}`);
+      return true;
     }
 
     return false;

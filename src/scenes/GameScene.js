@@ -8,8 +8,11 @@ import { FeedbackSystem } from '../systems/FeedbackSystem.js';
 import { AISystem } from '../systems/AISystem.js';
 
 // Images — imported so vite-plugin-singlefile inlines them as base64 data URLs
+import bgUrl from '../images/bg.webp';
+import buttonReplayUrl from '../images/button_replay.webp';
 import basePlayerUrl from '../images/base-player.webp';
 import baseEnemyUrl from '../images/base-enemy.webp';
+import baseUIUrl from '../images/base_UI.webp';
 import planePlayerUrl from '../images/plane-player.webp';
 import planeEnemyUrl from '../images/plane-enemy.webp';
 import shieldUrl from '../images/shield.webp';
@@ -31,19 +34,22 @@ export class GameScene extends Phaser.Scene {
     this.actionUsedThisTurn = false;
     this.hpCellsP1 = [];
     this.hpCellsP2 = [];
+    // Track previous HP values to detect new damage for animation
+    this.prevHP = { [1]: null, [2]: null };
   }
 
   preload() {
+    this.load.image('bg', bgUrl);
+    this.load.image('button-replay', buttonReplayUrl);
     this.load.image('base-player', basePlayerUrl);
     this.load.image('base-enemy', baseEnemyUrl);
+    this.load.image('base-ui', baseUIUrl);
     this.load.image('plane-player', planePlayerUrl);
     this.load.image('plane-enemy', planeEnemyUrl);
     this.load.image('shield', shieldUrl);
   }
 
   create() {
-    this.cameras.main.setBackgroundColor(CONFIG.BACKGROUND_COLOR);
-
     this.drawLayout();
     this.createUI();
 
@@ -57,14 +63,6 @@ export class GameScene extends Phaser.Scene {
       this.isAITurn = false;
     }
 
-    // Hint text
-    this.add.text(
-      CONFIG.CANVAS_WIDTH / 2,
-      CONFIG.CANVAS_HEIGHT / 2 + 30,
-      'Line = Shield   Triangle = Plane   Drag plane = Attack',
-      { fontFamily: FONT_BODY, fontSize: '13px', color: '#999988', align: 'center' }
-    ).setOrigin(0.5);
-
     // Debug: D key damages current player's base
     this.input.keyboard.on('keydown-D', () => {
       this.gameStateManager.damageBase(this.gameStateManager.currentPlayer);
@@ -76,119 +74,103 @@ export class GameScene extends Phaser.Scene {
   }
 
   drawLayout() {
-    const graphics = this.add.graphics();
-
-    // Divider
-    graphics.lineStyle(2, CONFIG.DIVIDER_COLOR, 0.7);
-    graphics.beginPath();
-    graphics.moveTo(0, CONFIG.DIVIDER_Y);
-    graphics.lineTo(CONFIG.CANVAS_WIDTH, CONFIG.DIVIDER_Y);
-    graphics.strokePath();
-
-    // Zone boundaries (subtle)
-    graphics.lineStyle(1, CONFIG.ZONE_LINE_COLOR, 0.5);
-    graphics.strokeRect(0, 0, CONFIG.CANVAS_WIDTH, CONFIG.ENEMY_ZONE_HEIGHT);
-    graphics.strokeRect(0, CONFIG.DIVIDER_Y, CONFIG.CANVAS_WIDTH, CONFIG.PLAYER_ZONE_HEIGHT);
+    // Background image — stretched to fill the canvas, drawn at depth 0
+    const bg = this.add.image(CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 2, 'bg');
+    bg.setDisplaySize(CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
+    bg.setDepth(0);
 
     this.drawBases();
   }
 
   drawBases() {
+    const cx = CONFIG.CANVAS_WIDTH / 2;
+
+    // ── Base mech sprites ───────────────────────────────────────────────────
+    // Scale to target width (128px) while preserving the texture's natural aspect ratio.
+    // This avoids distortion if the source image isn't perfectly square.
+
     // Player 1 (bottom)
     this.p1BaseSprite = this.add.image(
-      CONFIG.CANVAS_WIDTH / 2,
-      CONFIG.CANVAS_HEIGHT - CONFIG.BASE_Y_OFFSET,
-      'base-player'
+      cx, CONFIG.CANVAS_HEIGHT - CONFIG.BASE_Y_OFFSET, 'base-player'
     );
-    this.p1BaseSprite.setDisplaySize(128, 128);
+    this.p1BaseSprite.setScale(128 / this.p1BaseSprite.width);
+    this.p1BaseSprite.setDepth(1);
 
     // Player 2 (top)
     this.p2BaseSprite = this.add.image(
-      CONFIG.CANVAS_WIDTH / 2,
-      CONFIG.BASE_Y_OFFSET,
-      'base-enemy'
+      cx, CONFIG.BASE_Y_OFFSET, 'base-enemy'
     );
-    this.p2BaseSprite.setDisplaySize(128, 128);
+    this.p2BaseSprite.setScale(128 / this.p2BaseSprite.width);
+    this.p2BaseSprite.setDepth(1);
+
+    // ── BASE UI strips ──────────────────────────────────────────────────────
+    // Use the image's natural size (no scale) — sits between canvas edge and base mech.
+    const yEdge = CONFIG.BASE_UI_Y_EDGE;
+
+    // Player 1 strip (bottom edge)
+    this.p1BaseUI = this.add.image(cx, CONFIG.CANVAS_HEIGHT - yEdge, 'base-ui');
+    this.p1BaseUI.setDepth(12);
+
+    // Player 2 strip (top edge) — same image, same orientation
+    this.p2BaseUI = this.add.image(cx, yEdge, 'base-ui');
+    this.p2BaseUI.setDepth(12);
   }
 
   /**
-   * Draw B/A/S/E HP cells with pencil-style borders.
-   * HP depletes from B first: when HP=3, B is crossed; HP=2, B+A; etc.
+   * Draw red X marks on the base_UI strip for depleted HP cells.
+   * Letters B/A/S/E are part of base_UI.webp — we only overlay the X lines.
+   * HP depletes from B first (index 0), then A (1), S (2), E (3).
+   * newlyDeadIndex: if >= 0, that cell's X is animated (just-damaged).
    */
-  drawHPCells(playerNum, currentHP) {
+  drawHPCells(playerNum, currentHP, newlyDeadIndex = -1) {
     const cellList = playerNum === PLAYERS.PLAYER_1 ? this.hpCellsP1 : this.hpCellsP2;
     for (const obj of cellList) obj.destroy();
     cellList.length = 0;
 
-    const letters = ['B', 'A', 'S', 'E'];
-    const cellW = 28;
-    const cellH = 30;
-    const gap = 5;
-    const totalW = letters.length * (cellW + gap) - gap;
-    const startX = CONFIG.CANVAS_WIDTH / 2 - totalW / 2;
+    // Derive letter X positions and X-mark cell size from the sprite's actual display size
+    const uiSprite = playerNum === PLAYERS.PLAYER_1 ? this.p1BaseUI : this.p2BaseUI;
+    if (!uiSprite) return;
 
-    // Hug canvas edge — cells at very top/bottom
-    const cy = playerNum === PLAYERS.PLAYER_1
-      ? CONFIG.CANVAS_HEIGHT - 16
-      : 16;
+    const uiW = uiSprite.displayWidth;
+    const uiH = uiSprite.displayHeight;
+    const cx  = CONFIG.CANVAS_WIDTH / 2;
 
-    // deadCount: how many cells are crossed (B first, then A, S, E)
+    const letterXs = CONFIG.BASE_UI_LETTER_RATIOS.map(r => cx + r * uiW);
+    const cellW    = uiW * CONFIG.BASE_UI_CELL_W_RATIO;
+    const cellH    = uiH * CONFIG.BASE_UI_CELL_H_RATIO;
+
+    // Y center of the letter cells — image centre + small downward offset
+    const cy = uiSprite.y + uiH * CONFIG.BASE_UI_CELL_Y_RATIO;
+
+    // deadCount: how many cells are crossed (B first → index 0)
     const deadCount = CONFIG.BASE_HP_MAX - currentHP;
 
-    for (let i = 0; i < letters.length; i++) {
-      const cx = startX + i * (cellW + gap) + cellW / 2;
-      const alive = i >= deadCount; // cells 0..deadCount-1 are crossed, rest alive
+    for (let i = 0; i < letterXs.length; i++) {
+      if (i >= deadCount) continue; // cell still alive — no mark
 
-      // Pencil border — depth 10+ ensures it sits above shields (depth 2) and bases (depth 0)
-      const g = this.add.graphics();
-      g.setDepth(10);
-      this._drawPencilRect(
-        g, cx - cellW / 2, cy - cellH / 2, cellW, cellH,
-        alive ? 0x2a2a2a : 0x888888,
-        alive ? 0.85 : 0.4
-      );
-      cellList.push(g);
+      const cx = letterXs[i];
 
-      // Letter
-      const t = this.add.text(cx, cy, letters[i], {
-        fontFamily: FONT_BODY,
-        fontSize: `${cellW - 6}px`,
-        color: alive ? '#1a1a1a' : '#bbbbbb',
-      });
-      t.setOrigin(0.5);
-      t.setDepth(11);
-      cellList.push(t);
-
-      // Pencil-style red X for destroyed cells
-      if (!alive) {
+      if (i === newlyDeadIndex && this.feedbackSystem) {
+        // Animated pencil X drawn progressively
+        const sg = this.feedbackSystem.animateHPStrike(cx, cy, cellW, cellH);
+        cellList.push(sg);
+      } else {
+        // Static pencil X for already-dead cells
         const sg = this.add.graphics();
-        sg.setDepth(12);
-        // 3-pass jitter for pencil feel
+        sg.setDepth(15);
         for (let pass = 0; pass < 3; pass++) {
-          const jx = (Math.random() - 0.5) * 1.8;
-          const jy = (Math.random() - 0.5) * 1.8;
-          const a = pass === 0 ? 0.25 : pass === 1 ? 0.6 : 0.9;
-          const w = pass === 0 ? 3 : pass === 1 ? 2 : 1.5;
+          const jx = (Math.random() - 0.5) * 2;
+          const jy = (Math.random() - 0.5) * 2;
+          const a  = pass === 0 ? 0.25 : pass === 1 ? 0.6 : 0.92;
+          const w  = pass === 0 ? 3.5  : pass === 1 ? 2.5 : 1.8;
           sg.lineStyle(w, 0xaa1111, a);
           sg.beginPath();
-          sg.moveTo(cx - cellW / 2 + 3 + jx, cy - cellH / 2 + 3 + jy);
-          sg.lineTo(cx + cellW / 2 - 3 + jx, cy + cellH / 2 - 3 + jy);
+          sg.moveTo(cx - cellW / 2 + 9 + jx, cy - cellH / 2 + 9 + jy);
+          sg.lineTo(cx + cellW / 2 - 9 + jx, cy + cellH / 2 - 9 + jy);
           sg.strokePath();
         }
         cellList.push(sg);
       }
-    }
-  }
-
-  /**
-   * Pencil-style rectangle: 2 offset passes for a sketchy look
-   */
-  _drawPencilRect(g, x, y, w, h, color, alpha) {
-    for (let pass = 0; pass < 2; pass++) {
-      const jx = (Math.random() - 0.5) * 1.2;
-      const jy = (Math.random() - 0.5) * 1.2;
-      g.lineStyle(pass === 0 ? 2 : 1.5, color, pass === 0 ? alpha * 0.5 : alpha);
-      g.strokeRect(x + jx, y + jy, w, h);
     }
   }
 
@@ -197,22 +179,24 @@ export class GameScene extends Phaser.Scene {
     this.turnIndicator = this.add.text(
       10, 10,
       `Turn: ${this.gameStateManager.currentTurn}`,
-      { fontFamily: FONT_BODY, fontSize: '18px', color: CONFIG.TEXT_COLOR }
+      {
+        fontFamily: FONT_TITLE,
+        fontSize: '22px',
+        color: CONFIG.TEXT_COLOR,
+        stroke: '#f5f0e8',   // same as BACKGROUND_COLOR in CSS hex
+        strokeThickness: 4,
+      }
     );
 
-    // Centre instruction
-    this.add.text(
-      CONFIG.CANVAS_WIDTH / 2,
-      CONFIG.CANVAS_HEIGHT / 2,
-      'Draw on the screen to place units or attack',
-      { fontFamily: FONT_BODY, fontSize: '14px', color: '#999988', align: 'center' }
-    ).setOrigin(0.5);
-
-    // Initial HP cells
+    // Initial HP cells (no animation on first draw)
     this.hpCellsP1 = [];
     this.hpCellsP2 = [];
-    this.drawHPCells(PLAYERS.PLAYER_1, this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_1));
-    this.drawHPCells(PLAYERS.PLAYER_2, this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_2));
+    const initHP1 = this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_1);
+    const initHP2 = this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_2);
+    this.prevHP[PLAYERS.PLAYER_1] = initHP1;
+    this.prevHP[PLAYERS.PLAYER_2] = initHP2;
+    this.drawHPCells(PLAYERS.PLAYER_1, initHP1);
+    this.drawHPCells(PLAYERS.PLAYER_2, initHP2);
   }
 
   /**
@@ -227,7 +211,14 @@ export class GameScene extends Phaser.Scene {
       CONFIG.CANVAS_WIDTH / 2,
       CONFIG.CANVAS_HEIGHT / 2,
       label,
-      { fontFamily: FONT_TITLE, fontSize: '52px', color, align: 'center' }
+      {
+        fontFamily: FONT_TITLE,
+        fontSize: '52px',
+        color,
+        align: 'center',
+        stroke: '#f5f0e8',
+        strokeThickness: 6,
+      }
     );
     notif.setOrigin(0.5);
     notif.setDepth(80);
@@ -258,8 +249,13 @@ export class GameScene extends Phaser.Scene {
         const startPoint = stroke[0];
         const endPoint = stroke[stroke.length - 1];
         this.drawingSystem.previewGraphics.clear();
-        this.combatSystem.performAttack(currentPlayer, startPoint.x, startPoint.y, endPoint.x, endPoint.y);
-        this.markActionUsed();
+        // Lock input immediately; call markActionUsed after animation finishes
+        this.actionUsedThisTurn = true;
+        this.combatSystem.performAttack(
+          currentPlayer, startPoint.x, startPoint.y, endPoint.x, endPoint.y
+        ).then(() => {
+          this.markActionUsed();
+        });
       }
       return;
     }
@@ -270,15 +266,22 @@ export class GameScene extends Phaser.Scene {
     let placed = false;
 
     switch (shapeInfo.type) {
-      case 'line':
-        placed = this.unitManager.placeShield(currentPlayer);
-        if (placed) console.log(`Shield placed for ${currentPlayer}`);
+      case 'line': {
+        const shieldResult = this.unitManager.placeShield(currentPlayer);
+        placed = shieldResult === 'ok' || shieldResult === true;
+        if (!placed && this.feedbackSystem) {
+          this.feedbackSystem.showPlacementError(center.x, center.y, shieldResult);
+        }
         break;
-
-      case 'triangle':
-        placed = this.unitManager.placeWeapon(currentPlayer, center.x, center.y);
-        if (placed) console.log(`Weapon placed for ${currentPlayer}`);
+      }
+      case 'triangle': {
+        const weaponResult = this.unitManager.placeWeapon(currentPlayer, center.x, center.y);
+        placed = weaponResult === 'ok' || weaponResult === true;
+        if (!placed && this.feedbackSystem) {
+          this.feedbackSystem.showPlacementError(center.x, center.y, weaponResult);
+        }
         break;
+      }
 
       case 'circle':
         console.log('Circle: reserved for special abilities');
@@ -338,8 +341,22 @@ export class GameScene extends Phaser.Scene {
   updateUI() {
     this.turnIndicator.setText(`Turn: ${this.gameStateManager.currentTurn}`);
 
-    this.drawHPCells(PLAYERS.PLAYER_1, this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_1));
-    this.drawHPCells(PLAYERS.PLAYER_2, this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_2));
+    const hp1 = this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_1);
+    const hp2 = this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_2);
+
+    // Detect newly-crossed cell index (B=0, A=1, S=2, E=3); -1 = no change
+    const newDead1 = (this.prevHP[1] !== null && hp1 < this.prevHP[1])
+      ? CONFIG.BASE_HP_MAX - hp1 - 1  // index of newly crossed cell
+      : -1;
+    const newDead2 = (this.prevHP[2] !== null && hp2 < this.prevHP[2])
+      ? CONFIG.BASE_HP_MAX - hp2 - 1
+      : -1;
+
+    this.prevHP[1] = hp1;
+    this.prevHP[2] = hp2;
+
+    this.drawHPCells(PLAYERS.PLAYER_1, hp1, newDead1);
+    this.drawHPCells(PLAYERS.PLAYER_2, hp2, newDead2);
 
     if (this.gameStateManager.isGameOver()) {
       this.showGameOver();
@@ -367,34 +384,26 @@ export class GameScene extends Phaser.Scene {
     const resultColor = winner === PLAYERS.PLAYER_1 ? '#44cc44' : '#cc4444';
 
     const title = this.add.text(
-      CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 2 - 60,
+      CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 3,
       resultText,
       { fontFamily: FONT_TITLE, fontSize: '72px', color: resultColor, align: 'center' }
     );
     title.setOrigin(0.5);
     title.setDepth(101);
 
-    // Restart button
-    const buttonBg = this.add.rectangle(
-      CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 2 + 60,
-      220, 54, 0x334488
+    // Restart button — uses button_replay.webp at natural size
+    const replayBtn = this.add.image(
+      CONFIG.CANVAS_WIDTH / 2, (CONFIG.CANVAS_HEIGHT / 3) * 2,
+      'button-replay'
     );
-    buttonBg.setDepth(101);
-    buttonBg.setInteractive({ useHandCursor: true });
+    replayBtn.setDepth(101);
+    replayBtn.setInteractive({ useHandCursor: true });
 
-    const buttonText = this.add.text(
-      CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 2 + 60,
-      'RESTART',
-      { fontFamily: FONT_TITLE, fontSize: '32px', color: '#ffffff', align: 'center' }
-    );
-    buttonText.setOrigin(0.5);
-    buttonText.setDepth(102);
+    replayBtn.on('pointerover', () => replayBtn.setAlpha(0.8));
+    replayBtn.on('pointerout',  () => replayBtn.setAlpha(1));
+    replayBtn.on('pointerdown', () => this.restartGame());
 
-    buttonBg.on('pointerover', () => buttonBg.setFillStyle(0x5566bb));
-    buttonBg.on('pointerout', () => buttonBg.setFillStyle(0x334488));
-    buttonBg.on('pointerdown', () => this.restartGame());
-
-    this.gameOverUI = { overlay, title, buttonBg, buttonText };
+    this.gameOverUI = { overlay, title, replayBtn };
   }
 
   restartGame() {
