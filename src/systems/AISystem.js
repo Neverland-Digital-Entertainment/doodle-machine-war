@@ -68,17 +68,38 @@ export class AISystem {
     const startY = attacker.y;
 
     // Target: opponent shields, weapons, or base
+    // Weighted selection: base = 65%, weapon = 25%, shield = 10%
+    // Attacking base naturally hits shields first (raycast handles priority),
+    // so weighting toward base creates pressure without ignoring defences.
     const opponentShields = this.unitManager.getShieldsForPlayer(this.opponentPlayer);
     const opponentWeapons = this.unitManager.getWeaponsForPlayer(this.opponentPlayer);
     const opponentBaseY   = CONFIG.CANVAS_HEIGHT - CONFIG.BASE_Y_OFFSET; // Player 1 is always bottom
 
-    const targets = [
-      ...opponentShields.map(s => ({ type: 'shield', x: s.centerX, y: s.centerY })),
-      ...opponentWeapons.map(w => ({ type: 'weapon', x: w.x,       y: w.y       })),
-      { type: 'base', x: CONFIG.CANVAS_WIDTH / 2, y: opponentBaseY },
-    ];
+    const baseTarget    = { type: 'base',   x: CONFIG.CANVAS_WIDTH / 2, y: opponentBaseY };
+    const shieldTargets = opponentShields.map(s => ({ type: 'shield', x: s.centerX, y: s.centerY }));
+    const weaponTargets = opponentWeapons.map(w => ({ type: 'weapon', x: w.x,       y: w.y       }));
 
-    const target = targets[Math.floor(Math.random() * targets.length)];
+    // Build weighted pool: each base entry = 65 weight, weapon entries share 25, shield entries share 10
+    const weightedPool = [];
+
+    // Base: 65 slots
+    for (let i = 0; i < 65; i++) weightedPool.push(baseTarget);
+
+    // Weapons: share 25 slots evenly
+    if (weaponTargets.length > 0) {
+      const slotsEach = Math.round(25 / weaponTargets.length);
+      for (const w of weaponTargets)
+        for (let i = 0; i < slotsEach; i++) weightedPool.push(w);
+    }
+
+    // Shields: share 10 slots evenly
+    if (shieldTargets.length > 0) {
+      const slotsEach = Math.round(10 / shieldTargets.length);
+      for (const s of shieldTargets)
+        for (let i = 0; i < slotsEach; i++) weightedPool.push(s);
+    }
+
+    const target = weightedPool[Math.floor(Math.random() * weightedPool.length)];
     console.log(`AI attacking ${target.type} from weapon`);
 
     await this.combatSystem.performAttack(
