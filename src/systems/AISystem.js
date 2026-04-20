@@ -6,12 +6,25 @@ import { CONFIG, PLAYERS } from '../config.js';
  * Attacks only originate from AI weapons (planes) — never from shields or base.
  */
 export class AISystem {
-  constructor(unitManager, combatSystem, gameState) {
+  constructor(unitManager, combatSystem, gameState, difficulty = 'easy') {
     this.unitManager    = unitManager;
     this.combatSystem   = combatSystem;
     this.gameState      = gameState;
     this.aiPlayer       = PLAYERS.PLAYER_2;
     this.opponentPlayer = PLAYERS.PLAYER_1;
+    this.difficulty     = difficulty; // 'easy' (default) or 'hard'
+  }
+
+  /**
+   * Get weight config for current difficulty.
+   * Easy: 60/25/15 (attack/weapon/shield)
+   * Hard: 70/15/15 — more aggressive but keeps defense
+   */
+  _getActionWeights() {
+    if (this.difficulty === 'hard') {
+      return { attack: 70, weapon: 15, shield: 15 };
+    }
+    return { attack: 60, weapon: 25, shield: 15 };
   }
 
   /**
@@ -21,17 +34,18 @@ export class AISystem {
     const shields = this.unitManager.getShieldsForPlayer(this.aiPlayer);
     const weapons = this.unitManager.getWeaponsForPlayer(this.aiPlayer);
 
-    // Weighted action selection: attack 60%, weapon 25%, shield 15%
-    // Build a weighted pool for available actions only
+    // Weighted action selection based on difficulty.
+    // Weights are in _getActionWeights(). Build a pool for available actions only.
+    const w = this._getActionWeights();
     const actionPool = [];
     if (weapons.length > 0) {
-      for (let i = 0; i < 60; i++) actionPool.push('attack');
+      for (let i = 0; i < w.attack; i++) actionPool.push('attack');
     }
     // Always allow weapon placement
-    for (let i = 0; i < 25; i++) actionPool.push('weapon');
+    for (let i = 0; i < w.weapon; i++) actionPool.push('weapon');
     // Shield only if under cap
     if (shields.length < 3) {
-      for (let i = 0; i < 15; i++) actionPool.push('shield');
+      for (let i = 0; i < w.shield; i++) actionPool.push('shield');
     }
 
     // Fallback: if no weapons yet, just place weapon or shield
@@ -76,7 +90,7 @@ export class AISystem {
     const startX = attacker.x;
     const startY = attacker.y;
 
-    // Target: opponent base (65%) or opponent weapons (35%)
+    // Target: opponent base (80%) or opponent weapons (20%)
     // Shields are NOT direct targets — base-aimed attacks hit blocking shields
     // automatically via raycast priority, so no need to target them explicitly.
     const opponentWeapons = this.unitManager.getWeaponsForPlayer(this.opponentPlayer);
@@ -86,9 +100,9 @@ export class AISystem {
     const weaponTargets = opponentWeapons.map(w => ({ type: 'weapon', x: w.x, y: w.y }));
 
     const targetPool = [];
-    for (let i = 0; i < 65; i++) targetPool.push(baseTarget);
+    for (let i = 0; i < 80; i++) targetPool.push(baseTarget);
     if (weaponTargets.length > 0) {
-      const slotsEach = Math.round(35 / weaponTargets.length);
+      const slotsEach = Math.round(20 / weaponTargets.length);
       for (const w of weaponTargets)
         for (let i = 0; i < slotsEach; i++) targetPool.push(w);
     }

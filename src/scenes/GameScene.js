@@ -71,8 +71,15 @@ export class GameScene extends Phaser.Scene {
     this.drawingSystem = new DrawingSystem(this);
 
     if (this.enableAI) {
-      this.aiSystem = new AISystem(this.unitManager, this.combatSystem, this.gameStateManager);
+      // Difficulty escalation: first 2 games Easy, 3rd game onward Hard.
+      // No UI, no reminder — just quietly harder.
+      const gamesPlayed = parseInt(localStorage.getItem('dmw_games_played') || '0', 10);
+      const difficulty = gamesPlayed >= 2 ? 'hard' : 'easy';
+      this.aiSystem = new AISystem(
+        this.unitManager, this.combatSystem, this.gameStateManager, difficulty
+      );
       this.isAITurn = false;
+      console.log(`AI difficulty: ${difficulty} (games played: ${gamesPlayed})`);
     }
 
     // Debug: D key damages current player's base
@@ -392,8 +399,26 @@ export class GameScene extends Phaser.Scene {
 
     // Player 1 (human) wins → YOU WIN; Player 2 (AI) wins → YOU LOSS
     const winner = this.gameStateManager.getWinner();
-    const resultText = winner === PLAYERS.PLAYER_1 ? 'YOU WIN' : 'YOU LOSS';
-    const resultColor = winner === PLAYERS.PLAYER_1 ? '#44cc44' : '#cc4444';
+    const playerWon = winner === PLAYERS.PLAYER_1;
+    const resultText = playerWon ? 'YOU WIN' : 'YOU LOSS';
+    const resultColor = playerWon ? '#44cc44' : '#cc4444';
+    const turns = this.gameStateManager.currentTurn;
+
+    // --- localStorage tracking ---
+    // Increment games played
+    const gamesPlayed = parseInt(localStorage.getItem('dmw_games_played') || '0', 10) + 1;
+    localStorage.setItem('dmw_games_played', String(gamesPlayed));
+
+    // Track best (fewest turns to win). Only updates on wins.
+    let isNewBest = false;
+    let bestTurns = parseInt(localStorage.getItem('dmw_best_turns') || '0', 10);
+    if (playerWon) {
+      if (bestTurns === 0 || turns < bestTurns) {
+        bestTurns = turns;
+        localStorage.setItem('dmw_best_turns', String(turns));
+        isNewBest = true;
+      }
+    }
 
     const title = this.add.text(
       CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 3,
@@ -402,6 +427,40 @@ export class GameScene extends Phaser.Scene {
     );
     title.setOrigin(0.5);
     title.setDepth(101);
+
+    // Turn counter line — below the title
+    const turnLine = playerWon
+      ? `Cleared in ${turns} turn${turns === 1 ? '' : 's'}`
+      : `Survived ${turns} turn${turns === 1 ? '' : 's'}`;
+    const turnText = this.add.text(
+      CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 3 + 58,
+      turnLine,
+      { fontFamily: FONT_TITLE, fontSize: '26px', color: '#f5f0e8',
+        stroke: '#222', strokeThickness: 3, align: 'center' }
+    );
+    turnText.setOrigin(0.5);
+    turnText.setDepth(101);
+
+    // Guidance / best-record line
+    let guidance;
+    if (playerWon && isNewBest && gamesPlayed > 1) {
+      guidance = 'NEW BEST! Can you go lower?';
+    } else if (playerWon && bestTurns > 0 && !isNewBest) {
+      guidance = `Best: ${bestTurns} turns — beat it!`;
+    } else if (playerWon) {
+      guidance = 'Try again — can you do it faster?';
+    } else {
+      guidance = "Don't give up — try again!";
+    }
+    const guideColor = (playerWon && isNewBest && gamesPlayed > 1) ? '#ffcc33' : '#f5f0e8';
+    const guideText = this.add.text(
+      CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 3 + 96,
+      guidance,
+      { fontFamily: FONT_BODY, fontSize: '20px', color: guideColor,
+        stroke: '#222', strokeThickness: 2, align: 'center' }
+    );
+    guideText.setOrigin(0.5);
+    guideText.setDepth(101);
 
     // Restart button — uses button_replay.webp at natural size
     const replayBtn = this.add.image(
@@ -415,7 +474,7 @@ export class GameScene extends Phaser.Scene {
     replayBtn.on('pointerout',  () => replayBtn.setAlpha(1));
     replayBtn.on('pointerdown', () => this.restartGame());
 
-    this.gameOverUI = { overlay, title, replayBtn };
+    this.gameOverUI = { overlay, title, turnText, guideText, replayBtn };
   }
 
   restartGame() {
