@@ -61,6 +61,10 @@ export class CombatSystem {
           : CONFIG.BASE_Y_OFFSET;
         targetCX = CONFIG.CANVAS_WIDTH / 2;
         targetCY = baseY;
+        // Play destroy sound on base hit
+        if (this.scene?.feedbackSystem) {
+          this.scene.feedbackSystem._playSound('sfx-destroy', { volume: 0.9 });
+        }
         console.log(`Base damaged! HP: ${this.gameState.getPlayerHP(defender)}`);
       }
     }

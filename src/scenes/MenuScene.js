@@ -63,22 +63,22 @@ export class MenuScene extends Phaser.Scene {
     let cy = PY + PAD; // running cursor Y
 
     // ── Title ────────────────────────────────────────────────────────────────
-    const title = this._txt(PX + PW / 2, cy + 2, 'HOW TO PLAY', FONT_TITLE, 28, '#2a2a2a', d + 1);
+    const title = this._txt(PX + PW / 2, cy + 2, 'HOW TO PLAY', FONT_TITLE, 34, '#2a2a2a', d + 1);
     title.setOrigin(0.5, 0);
     objs.push(title);
-    cy += 40;
+    cy += 48;
 
     cy = this._divider(cy, objs, d + 1);
 
     // ── GOAL ─────────────────────────────────────────────────────────────────
     cy += 6;
-    const goalHdr = this._txt(PX + PAD, cy, 'GOAL', FONT_TITLE, 21, '#2a2a2a', d + 1);
+    const goalHdr = this._txt(PX + PAD, cy, 'GOAL', FONT_TITLE, 24, '#2a2a2a', d + 1);
     objs.push(goalHdr);
-    cy += 30;
+    cy += 34;
 
     const goalBody = this._txt(PX + PAD, cy,
       'Attack the enemy\'s BASE until all 4 letters — B, A, S, E — are crossed out. Each hit removes one letter. Cross them all out before the enemy does the same to yours!',
-      FONT_BODY, 18, '#2a2a2a', d + 1, PW - PAD * 2);
+      FONT_BODY, 20, '#2a2a2a', d + 1, PW - PAD * 2);
     objs.push(goalBody);
     cy += goalBody.height + 14;
 
@@ -86,9 +86,9 @@ export class MenuScene extends Phaser.Scene {
 
     // ── DRAW TO BUILD ─────────────────────────────────────────────────────────
     cy += 6;
-    const buildHdr = this._txt(PX + PAD, cy, 'DRAW TO BUILD', FONT_TITLE, 21, '#2a2a2a', d + 1);
+    const buildHdr = this._txt(PX + PAD, cy, 'DRAW TO BUILD', FONT_TITLE, 24, '#2a2a2a', d + 1);
     objs.push(buildHdr);
-    cy += 32;
+    cy += 36;
 
     const rows = [
       {
@@ -101,7 +101,7 @@ export class MenuScene extends Phaser.Scene {
         draw: (g, cx, rcY) => this._sketchTriangle(g, cx, rcY),
         name: 'FIGHTER',
         nameColor: '#2a7a2a',
-        desc: 'Draw a TRIANGLE to deploy a Fighter. Draw a line FROM your Fighter to attack — target the enemy\'s Fighters, Shields, or Base!',
+        desc: 'Draw a TRIANGLE to deploy a Fighter. Draw a line FROM your Fighter to attack.',
       },
       {
         draw: (g, cx, rcY) => this._sketchCircle2(g, cx, rcY),
@@ -125,10 +125,10 @@ export class MenuScene extends Phaser.Scene {
       // Item name
       const nameColor = row.dim ? '#aaaaaa' : row.nameColor;
       const bodyColor = row.dim ? '#aaaaaa' : '#2a2a2a';
-      const nm = this._txt(TEXT_X, cy + 6, row.name, FONT_TITLE, 20, nameColor, d + 1);
+      const nm = this._txt(TEXT_X, cy + 6, row.name, FONT_TITLE, 22, nameColor, d + 1);
       objs.push(nm);
 
-      const desc = this._txt(TEXT_X, cy + 32, row.desc, FONT_BODY, 16, bodyColor, d + 1, TEXT_W);
+      const desc = this._txt(TEXT_X, cy + 34, row.desc, FONT_BODY, 20, bodyColor, d + 1, TEXT_W);
       objs.push(desc);
 
       // Thin row separator (except after last row)
@@ -150,9 +150,9 @@ export class MenuScene extends Phaser.Scene {
 
     // ── LINE TO ATTACK ────────────────────────────────────────────────────────
     cy += 6;
-    const atkHdr = this._txt(PX + PAD, cy, 'LINE TO ATTACK', FONT_TITLE, 21, '#2a2a2a', d + 1);
+    const atkHdr = this._txt(PX + PAD, cy, 'LINE TO ATTACK', FONT_TITLE, 24, '#2a2a2a', d + 1);
     objs.push(atkHdr);
-    cy += 32;
+    cy += 36;
 
     // Attack illustration: fighter → arrow → shield/base
     const ag = this.add.graphics();
@@ -162,7 +162,7 @@ export class MenuScene extends Phaser.Scene {
 
     const atkDesc = this._txt(PX + PAD, cy + 62,
       'Draw a line FROM your Fighter toward any enemy — their Fighters, Shields, or Base. The first thing your line hits takes the damage!',
-      FONT_BODY, 17, '#2a2a2a', d + 1, PW - PAD * 2);
+      FONT_BODY, 20, '#2a2a2a', d + 1, PW - PAD * 2);
     objs.push(atkDesc);
 
     // ── Close (X) button ─────────────────────────────────────────────────────
