@@ -21,13 +21,22 @@ export class AISystem {
     const shields = this.unitManager.getShieldsForPlayer(this.aiPlayer);
     const weapons = this.unitManager.getWeaponsForPlayer(this.aiPlayer);
 
-    // Build available actions
-    const actions = [];
-    if (shields.length < 3)  actions.push('shield');
-    actions.push('weapon');
-    if (weapons.length > 0)  actions.push('attack'); // only if AI has a plane to attack from
+    // Weighted action selection: attack 60%, weapon 25%, shield 15%
+    // Build a weighted pool for available actions only
+    const actionPool = [];
+    if (weapons.length > 0) {
+      for (let i = 0; i < 60; i++) actionPool.push('attack');
+    }
+    // Always allow weapon placement
+    for (let i = 0; i < 25; i++) actionPool.push('weapon');
+    // Shield only if under cap
+    if (shields.length < 3) {
+      for (let i = 0; i < 15; i++) actionPool.push('shield');
+    }
 
-    const action = actions[Math.floor(Math.random() * actions.length)];
+    // Fallback: if no weapons yet, just place weapon or shield
+    const pool = actionPool.length > 0 ? actionPool : ['weapon'];
+    const action = pool[Math.floor(Math.random() * pool.length)];
 
     switch (action) {
       case 'shield':
@@ -67,18 +76,24 @@ export class AISystem {
     const startX = attacker.x;
     const startY = attacker.y;
 
-    // Target: opponent shields, weapons, or base
-    const opponentShields = this.unitManager.getShieldsForPlayer(this.opponentPlayer);
+    // Target: opponent base (65%) or opponent weapons (35%)
+    // Shields are NOT direct targets — base-aimed attacks hit blocking shields
+    // automatically via raycast priority, so no need to target them explicitly.
     const opponentWeapons = this.unitManager.getWeaponsForPlayer(this.opponentPlayer);
     const opponentBaseY   = CONFIG.CANVAS_HEIGHT - CONFIG.BASE_Y_OFFSET; // Player 1 is always bottom
 
-    const targets = [
-      ...opponentShields.map(s => ({ type: 'shield', x: s.centerX, y: s.centerY })),
-      ...opponentWeapons.map(w => ({ type: 'weapon', x: w.x,       y: w.y       })),
-      { type: 'base', x: CONFIG.CANVAS_WIDTH / 2, y: opponentBaseY },
-    ];
+    const baseTarget    = { type: 'base', x: CONFIG.CANVAS_WIDTH / 2, y: opponentBaseY };
+    const weaponTargets = opponentWeapons.map(w => ({ type: 'weapon', x: w.x, y: w.y }));
 
-    const target = targets[Math.floor(Math.random() * targets.length)];
+    const targetPool = [];
+    for (let i = 0; i < 65; i++) targetPool.push(baseTarget);
+    if (weaponTargets.length > 0) {
+      const slotsEach = Math.round(35 / weaponTargets.length);
+      for (const w of weaponTargets)
+        for (let i = 0; i < slotsEach; i++) targetPool.push(w);
+    }
+
+    const target = targetPool[Math.floor(Math.random() * targetPool.length)];
     console.log(`AI attacking ${target.type} from weapon`);
 
     await this.combatSystem.performAttack(
