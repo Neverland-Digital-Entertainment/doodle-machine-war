@@ -10,6 +10,12 @@ import { AISystem } from '../systems/AISystem.js';
 // Images — imported so vite-plugin-singlefile inlines them as base64 data URLs
 import bgUrl from '../images/bg.webp';
 import buttonReplayUrl from '../images/button_replay.webp';
+
+// SFX — imported as URLs so vite-plugin-singlefile inlines them as base64
+import sfxAttackUrl       from '../sfx/attack.ogg';
+import sfxScribbleUrl     from '../sfx/pencil-scribble.ogg';
+import sfxShieldUrl       from '../sfx/shield.ogg';
+import sfxDestroyUrl      from '../sfx/destroy.ogg';
 import basePlayerUrl from '../images/base-player.webp';
 import baseEnemyUrl from '../images/base-enemy.webp';
 import baseUIUrl from '../images/base_UI.webp';
@@ -41,6 +47,12 @@ export class GameScene extends Phaser.Scene {
   preload() {
     this.load.image('bg', bgUrl);
     this.load.image('button-replay', buttonReplayUrl);
+
+    // SFX
+    this.load.audio('sfx-attack',   [sfxAttackUrl]);
+    this.load.audio('sfx-scribble', [sfxScribbleUrl]);
+    this.load.audio('sfx-shield',   [sfxShieldUrl]);
+    this.load.audio('sfx-destroy',  [sfxDestroyUrl]);
     this.load.image('base-player', basePlayerUrl);
     this.load.image('base-enemy', baseEnemyUrl);
     this.load.image('base-ui', baseUIUrl);

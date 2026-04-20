@@ -15,8 +15,19 @@ export class FeedbackSystem {
 
   // ── Spawn ────────────────────────────────────────────────────────────────
 
+  _playSound(key, config = {}) {
+    try { this.scene.sound.play(key, config); } catch (_) {}
+  }
+
   showSpawnEffect(sprite, type) {
     if (!sprite) return;
+
+    // Shield spawn → shield.ogg; weapon/other → pencil-scribble.ogg
+    if (type === 'shield') {
+      this._playSound('sfx-shield', { volume: 0.8 });
+    } else {
+      this._playSound('sfx-scribble', { volume: 0.7 });
+    }
 
     // Capture the correct target scales (set by setDisplaySize before this call)
     const targetScaleX = sprite.scaleX;
@@ -62,6 +73,10 @@ export class FeedbackSystem {
    * sprite may be null (e.g. base hit — we only show scribble at position).
    */
   showDestructionEffect(sprite, cx, cy, size = 60) {
+    // Pencil scribble sound immediately, then destroy sound after scribble settles
+    this._playSound('sfx-scribble', { volume: 0.8 });
+    this.scene.time.delayedCall(320, () => this._playSound('sfx-destroy', { volume: 0.9 }));
+
     const g = this.scene.add.graphics();
     g.setDepth(50);
     this._scribble(g, cx, cy, size);
@@ -95,6 +110,8 @@ export class FeedbackSystem {
    * onComplete fires after the line is fully drawn and held briefly.
    */
   animateAttackLine(sx, sy, ex, ey, color, onComplete) {
+    this._playSound('sfx-attack', { volume: 0.85 });
+
     const g = this.scene.add.graphics();
     g.setDepth(30);
 
