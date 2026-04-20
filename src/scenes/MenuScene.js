@@ -101,7 +101,7 @@ export class MenuScene extends Phaser.Scene {
         draw: (g, cx, rcY) => this._sketchTriangle(g, cx, rcY),
         name: 'FIGHTER',
         nameColor: '#2a7a2a',
-        desc: 'Draw a TRIANGLE to deploy a Fighter. Draw a line FROM your Fighter to attack — target the enemy\'s Fighters, Shields, or Base!',
+        desc: 'Draw a TRIANGLE to deploy a Fighter. Draw a line FROM your Fighter to attack.',
       },
       {
         draw: (g, cx, rcY) => this._sketchCircle2(g, cx, rcY),
@@ -128,7 +128,7 @@ export class MenuScene extends Phaser.Scene {
       const nm = this._txt(TEXT_X, cy + 6, row.name, FONT_TITLE, 22, nameColor, d + 1);
       objs.push(nm);
 
-      const desc = this._txt(TEXT_X, cy + 34, row.desc, FONT_BODY, 18, bodyColor, d + 1, TEXT_W);
+      const desc = this._txt(TEXT_X, cy + 34, row.desc, FONT_BODY, 20, bodyColor, d + 1, TEXT_W);
       objs.push(desc);
 
       // Thin row separator (except after last row)
@@ -162,7 +162,7 @@ export class MenuScene extends Phaser.Scene {
 
     const atkDesc = this._txt(PX + PAD, cy + 62,
       'Draw a line FROM your Fighter toward any enemy — their Fighters, Shields, or Base. The first thing your line hits takes the damage!',
-      FONT_BODY, 19, '#2a2a2a', d + 1, PW - PAD * 2);
+      FONT_BODY, 20, '#2a2a2a', d + 1, PW - PAD * 2);
     objs.push(atkDesc);
 
     // ── Close (X) button ─────────────────────────────────────────────────────
