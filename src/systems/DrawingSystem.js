@@ -57,7 +57,6 @@ export class DrawingSystem {
           pointer.y >= bounds.minY &&
           pointer.y <= bounds.maxY
         ) {
-          // Pointer is on a weapon - enable attack mode
           this.scene.attackMode = true;
           break;
         }
@@ -81,8 +80,6 @@ export class DrawingSystem {
 
     console.log(`Detected: ${shapeInfo.type || 'NONE'}`);
 
-    // In attack mode, always fire onStrokeComplete (no shape detection needed)
-    // In normal mode, only fire if a shape was recognized
     if (this.scene.attackMode || shapeInfo.type) {
       this.scene.onStrokeComplete(shapeInfo, this.currentStroke);
     }
@@ -102,7 +99,6 @@ export class DrawingSystem {
   }
 
   redrawStroke() {
-    // In attack mode, only show attack preview, not the regular stroke
     if (this.scene.attackMode) {
       this.graphics.clear();
       if (this.currentStroke.length >= 2) {
@@ -111,24 +107,50 @@ export class DrawingSystem {
       return;
     }
 
-    // Normal mode: show regular stroke
     this.graphics.clear();
-    this.graphics.lineStyle(CONFIG.STROKE_WIDTH, CONFIG.STROKE_COLOR, 1);
-    this.graphics.beginPath();
-
-    if (this.currentStroke.length > 0) {
-      this.graphics.moveTo(this.currentStroke[0].x, this.currentStroke[0].y);
-
-      for (let i = 1; i < this.currentStroke.length; i++) {
-        this.graphics.lineTo(this.currentStroke[i].x, this.currentStroke[i].y);
-      }
-
-      this.graphics.strokePath();
+    if (this.currentStroke.length > 1) {
+      this.drawPencilLine(this.graphics, this.currentStroke, CONFIG.STROKE_COLOR, CONFIG.STROKE_WIDTH);
     }
   }
 
   /**
-   * Show real-time attack preview in attack mode
+   * Draw a pencil-style line with slight jitter and layered strokes
+   * for a hand-drawn, noisy paper look
+   */
+  drawPencilLine(g, points, color, baseWidth) {
+    if (points.length < 2) return;
+
+    // Layer 1: wide, very transparent base (smudge)
+    this._drawJitteredPath(g, points, color, baseWidth + 1, 0.6, 0.12);
+    // Layer 2: mid opacity with jitter
+    this._drawJitteredPath(g, points, color, baseWidth, 0.8, 0.55);
+    // Layer 3: fine crisp top stroke, minimal jitter
+    this._drawJitteredPath(g, points, color, Math.max(1, baseWidth - 1), 0.3, 0.85);
+  }
+
+  /**
+   * Internal: draw a jittered version of the point path
+   * @param {number} jitter  max pixel offset per point
+   * @param {number} alpha   line alpha
+   */
+  _drawJitteredPath(g, points, color, width, jitter, alpha) {
+    g.lineStyle(width, color, alpha);
+    g.beginPath();
+    g.moveTo(
+      points[0].x + (Math.random() - 0.5) * jitter,
+      points[0].y + (Math.random() - 0.5) * jitter
+    );
+    for (let i = 1; i < points.length; i++) {
+      g.lineTo(
+        points[i].x + (Math.random() - 0.5) * jitter,
+        points[i].y + (Math.random() - 0.5) * jitter
+      );
+    }
+    g.strokePath();
+  }
+
+  /**
+   * Show real-time attack preview in attack mode (pencil style)
    */
   showAttackPreview() {
     if (!this.scene.combatSystem || this.currentStroke.length < 2) return;
@@ -138,7 +160,6 @@ export class DrawingSystem {
     const startPoint = this.currentStroke[0];
     const endPoint = this.currentStroke[this.currentStroke.length - 1];
 
-    // Cast ray to check what we'd hit
     const hitResult = this.scene.combatSystem.raycastSystem.castRay(
       startPoint.x,
       startPoint.y,
@@ -147,22 +168,13 @@ export class DrawingSystem {
       this.scene.gameStateManager.currentPlayer
     );
 
-    // Choose color based on hit result
-    let color;
-    if (hitResult.hitTarget) {
-      color = 0xffff00; // Yellow for successful hit
-    } else {
-      color = 0xff6666; // Red for miss
-    }
+    const color = hitResult.hitTarget ? 0x228822 : 0xaa2222;
+    const linePoints = [startPoint, endPoint];
 
-    // Draw attack preview line
-    this.previewGraphics.lineStyle(2, color, 1);
-    this.previewGraphics.beginPath();
-    this.previewGraphics.moveTo(startPoint.x, startPoint.y);
-    this.previewGraphics.lineTo(endPoint.x, endPoint.y);
-    this.previewGraphics.strokePath();
+    // Pencil-style preview line
+    this.drawPencilLine(this.previewGraphics, linePoints, color, 2);
 
-    // Draw start point
+    // Start dot
     this.previewGraphics.fillStyle(color, 0.8);
     this.previewGraphics.fillCircle(startPoint.x, startPoint.y, 4);
   }
@@ -178,7 +190,7 @@ export class DrawingSystem {
   /**
    * Draw a visual representation of a completed shape
    */
-  drawShape(shapeInfo, color = 0xffa500) {
+  drawShape(shapeInfo, color = 0x445533) {
     if (!shapeInfo.center) return;
 
     const g = this.scene.add.graphics();
@@ -186,17 +198,12 @@ export class DrawingSystem {
 
     switch (shapeInfo.type) {
       case 'line':
-        // Draw a horizontal line at the center point
-        g.beginPath();
-        g.moveTo(0, shapeInfo.center.y);
-        g.lineTo(CONFIG.CANVAS_WIDTH, shapeInfo.center.y);
-        g.strokePath();
+        // No line drawn — shield spawn effect is the visual feedback
         break;
 
-      case 'triangle':
-        // Draw a small triangle marker
+      case 'triangle': {
         const triSize = 15;
-        g.fillStyle(color, 0.5);
+        g.fillStyle(color, 0.4);
         g.beginPath();
         g.moveTo(shapeInfo.center.x, shapeInfo.center.y - triSize);
         g.lineTo(shapeInfo.center.x + triSize, shapeInfo.center.y + triSize);
@@ -204,14 +211,13 @@ export class DrawingSystem {
         g.closePath();
         g.fillPath();
         break;
+      }
 
       case 'circle':
-        // Draw a circle marker
         g.strokeCircle(shapeInfo.center.x, shapeInfo.center.y, 12);
         break;
     }
 
-    // Auto-remove after short delay for visual feedback
     this.scene.time.delayedCall(300, () => g.destroy());
   }
 

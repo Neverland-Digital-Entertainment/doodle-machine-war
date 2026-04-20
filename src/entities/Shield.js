@@ -1,9 +1,11 @@
 import { CONFIG, PLAYERS } from '../config.js';
+import shieldUrl from '../images/shield.webp';
 
 /**
  * Shield - A defensive unit that blocks attacks
- * Represented as a semi-circle around the player's base
- * Multiple shields create concentric rings
+ * Displayed as shield.webp at 1:1 (square) aspect ratio, scaled by layer.
+ * Positioned to cover the base sprite (256×256).
+ * Collision uses a circle centered at the base.
  */
 export class Shield {
   constructor(scene, playerNum, shieldLayer = 1) {
@@ -12,50 +14,34 @@ export class Shield {
     this.shieldLayer = shieldLayer; // 1, 2, or 3
     this.active = true;
 
-    // Calculate center position (base center)
+    // Shield center — sits slightly above/below the base sprite center
     if (playerNum === PLAYERS.PLAYER_1) {
-      // Player 1 base is at bottom center
       this.centerX = CONFIG.CANVAS_WIDTH / 2;
-      this.centerY = CONFIG.CANVAS_HEIGHT - CONFIG.BASE_Y_OFFSET;
+      this.centerY = CONFIG.CANVAS_HEIGHT - CONFIG.SHIELD_BASE_Y_OFFSET;
       this.isTopPlayer = false;
     } else {
-      // Player 2 base is at top center
       this.centerX = CONFIG.CANVAS_WIDTH / 2;
-      this.centerY = CONFIG.BASE_Y_OFFSET;
+      this.centerY = CONFIG.SHIELD_BASE_Y_OFFSET - 22;
       this.isTopPlayer = true;
     }
 
-    // Calculate radius based on shield layer
-    // Layer 1: 50px, Layer 2: 80px, Layer 3: 110px
-    this.radius = 50 + (shieldLayer - 1) * 30;
+    // Collision radius per layer:
+    // Layer 1: 100  (200px wide — tight around base)
+    // Layer 2: 132  (264px wide — mid-field)
+    // Layer 3: 165  (330px wide — broader coverage)
+    const radii = [100, 132, 165];
+    this.radius = radii[shieldLayer - 1] || 100;
 
-    // Create visual representation
-    this.graphics = scene.add.graphics();
-    this.draw();
-  }
+    // Display diameter = radius × 2 so the visual fills its collision circle exactly.
+    const displaySize = this.radius * 2;
 
-  draw() {
-    this.graphics.clear();
-    if (!this.active) return;
+    this.sprite = scene.add.image(this.centerX, this.centerY, 'shield');
+    this.sprite.setDisplaySize(displaySize, displaySize); // keep 1:1 ratio
+    this.sprite.setAlpha(0.85);
+    // Draw shields below HP cells: explicit low depth (HP cells are at depth 10+)
+    this.sprite.setDepth(2);
 
-    // Draw semi-circle shield around base
-    this.graphics.fillStyle(0xffa500, 0.6);
-    this.graphics.lineStyle(2, 0xff8000, 1);
-
-    // Draw semi-circle (different direction for top/bottom)
-    this.graphics.beginPath();
-
-    if (this.isTopPlayer) {
-      // Player 2 (top): semi-circle facing down
-      this.graphics.arc(this.centerX, this.centerY, this.radius, 0, Math.PI, false);
-    } else {
-      // Player 1 (bottom): semi-circle facing up
-      this.graphics.arc(this.centerX, this.centerY, this.radius, Math.PI, 2 * Math.PI, false);
-    }
-
-    this.graphics.closePath();
-    this.graphics.fillPath();
-    this.graphics.strokePath();
+    // No flip needed — shield image works for both orientations
   }
 
   /**
@@ -81,17 +67,11 @@ export class Shield {
     const dy = py - this.centerY;
     const distSq = dx * dx + dy * dy;
 
-    // Point must be within radius
-    if (distSq > this.radius * this.radius) {
-      return false;
-    }
+    if (distSq > this.radius * this.radius) return false;
 
-    // Point must be on the correct side of the base
     if (this.isTopPlayer) {
-      // For top player, point must be above center (y < centerY)
       return py < this.centerY;
     } else {
-      // For bottom player, point must be below center (y > centerY)
       return py > this.centerY;
     }
   }
@@ -101,7 +81,9 @@ export class Shield {
    */
   destroy() {
     this.active = false;
-    this.graphics.clear();
-    this.graphics.destroy();
+    if (this.sprite) {
+      this.sprite.destroy();
+      this.sprite = null;
+    }
   }
 }

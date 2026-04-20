@@ -7,6 +7,20 @@ import { CombatSystem } from '../systems/CombatSystem.js';
 import { FeedbackSystem } from '../systems/FeedbackSystem.js';
 import { AISystem } from '../systems/AISystem.js';
 
+// Images — imported so vite-plugin-singlefile inlines them as base64 data URLs
+import bgUrl from '../images/bg.webp';
+import buttonReplayUrl from '../images/button_replay.webp';
+import basePlayerUrl from '../images/base-player.webp';
+import baseEnemyUrl from '../images/base-enemy.webp';
+import baseUIUrl from '../images/base_UI.webp';
+import planePlayerUrl from '../images/plane-player.webp';
+import planeEnemyUrl from '../images/plane-enemy.webp';
+import shieldUrl from '../images/shield.webp';
+
+// Font family names (loaded in main.js via FontFace API)
+const FONT_BODY  = 'rudiment_medium';
+const FONT_TITLE = 'sketch_block';
+
 export class GameScene extends Phaser.Scene {
   constructor() {
     super('GameScene');
@@ -14,260 +28,277 @@ export class GameScene extends Phaser.Scene {
     this.attackMode = false;
     this.gameOverUI = null;
     this.isGameOver = false;
-    this.enableAI = true; // Enable AI opponent
+    this.enableAI = true;
     this.aiSystem = null;
     this.isAITurn = false;
-    this.actionUsedThisTurn = false; // Track if player has taken an action this turn
+    this.actionUsedThisTurn = false;
+    this.hpCellsP1 = [];
+    this.hpCellsP2 = [];
+    // Track previous HP values to detect new damage for animation
+    this.prevHP = { [1]: null, [2]: null };
+  }
+
+  preload() {
+    this.load.image('bg', bgUrl);
+    this.load.image('button-replay', buttonReplayUrl);
+    this.load.image('base-player', basePlayerUrl);
+    this.load.image('base-enemy', baseEnemyUrl);
+    this.load.image('base-ui', baseUIUrl);
+    this.load.image('plane-player', planePlayerUrl);
+    this.load.image('plane-enemy', planeEnemyUrl);
+    this.load.image('shield', shieldUrl);
   }
 
   create() {
-    // Set background color
-    this.cameras.main.setBackgroundColor(CONFIG.BACKGROUND_COLOR);
-
-    // Draw game layout
     this.drawLayout();
-
-    // Create UI
     this.createUI();
 
-    // Initialize unit manager
     this.unitManager = new UnitManager(this);
-
-    // Initialize combat system
     this.combatSystem = new CombatSystem(this, this.unitManager, this.gameStateManager);
-
-    // Initialize feedback system
     this.feedbackSystem = new FeedbackSystem(this);
-
-    // Initialize drawing system
     this.drawingSystem = new DrawingSystem(this);
 
-    // Initialize AI system
     if (this.enableAI) {
       this.aiSystem = new AISystem(this.unitManager, this.combatSystem, this.gameStateManager);
-      this.isAITurn = false; // Start with player 1 (human)
+      this.isAITurn = false;
     }
 
-    // Test instructions
-    this.add.text(
-      CONFIG.CANVAS_WIDTH / 2,
-      CONFIG.CANVAS_HEIGHT / 2 + 30,
-      '← Try drawing: lines, triangles, circles →',
-      {
-        font: '14px Arial',
-        fill: '#cccccc',
-        align: 'center',
-      }
-    ).setOrigin(0.5);
-
-    // Test keyboard: D to damage current player's base
+    // Debug: D key damages current player's base
     this.input.keyboard.on('keydown-D', () => {
       this.gameStateManager.damageBase(this.gameStateManager.currentPlayer);
       this.updateUI();
     });
+
+    // Show YOUR TURN on game start
+    this.time.delayedCall(300, () => this.showTurnNotification(true));
   }
 
   drawLayout() {
-    const graphics = this.add.graphics();
+    // Background image — stretched to fill the canvas, drawn at depth 0
+    const bg = this.add.image(CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 2, 'bg');
+    bg.setDisplaySize(CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
+    bg.setDepth(0);
 
-    // Draw dividing line
-    graphics.lineStyle(2, CONFIG.DIVIDER_COLOR);
-    graphics.beginPath();
-    graphics.moveTo(0, CONFIG.DIVIDER_Y);
-    graphics.lineTo(CONFIG.CANVAS_WIDTH, CONFIG.DIVIDER_Y);
-    graphics.strokePath();
-
-    // Draw zone boundaries (optional visual guides)
-    graphics.lineStyle(1, CONFIG.ZONE_LINE_COLOR);
-
-    // Enemy zone outline
-    graphics.strokeRect(0, 0, CONFIG.CANVAS_WIDTH, CONFIG.ENEMY_ZONE_HEIGHT);
-
-    // Player zone outline
-    graphics.strokeRect(0, CONFIG.DIVIDER_Y, CONFIG.CANVAS_WIDTH, CONFIG.PLAYER_ZONE_HEIGHT);
-
-    // Draw base HP nodes for both players
-    this.drawBases(graphics);
+    this.drawBases();
   }
 
-  drawBases(graphics) {
-    const nodeSize = 20;
-    const nodeSpacing = 10;
-    const totalWidth = (nodeSize + nodeSpacing) * CONFIG.BASE_HP_MAX - nodeSpacing;
+  drawBases() {
+    const cx = CONFIG.CANVAS_WIDTH / 2;
 
-    // Player 1 base (bottom)
-    const p1BaseX = (CONFIG.CANVAS_WIDTH - totalWidth) / 2;
-    const p1BaseY = CONFIG.CANVAS_HEIGHT - CONFIG.BASE_Y_OFFSET;
+    // ── Base mech sprites ───────────────────────────────────────────────────
+    // Scale to target width (128px) while preserving the texture's natural aspect ratio.
+    // This avoids distortion if the source image isn't perfectly square.
 
-    graphics.fillStyle(0x00ff00); // Green for player base
-    for (let i = 0; i < this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_1); i++) {
-      const x = p1BaseX + i * (nodeSize + nodeSpacing);
-      graphics.fillRect(x, p1BaseY - nodeSize / 2, nodeSize, nodeSize);
-    }
+    // Player 1 (bottom)
+    this.p1BaseSprite = this.add.image(
+      cx, CONFIG.CANVAS_HEIGHT - CONFIG.BASE_Y_OFFSET, 'base-player'
+    );
+    this.p1BaseSprite.setScale(128 / this.p1BaseSprite.width);
+    this.p1BaseSprite.setDepth(1);
 
-    // Player 2 base (top)
-    const p2BaseX = (CONFIG.CANVAS_WIDTH - totalWidth) / 2;
-    const p2BaseY = CONFIG.BASE_Y_OFFSET;
+    // Player 2 (top)
+    this.p2BaseSprite = this.add.image(
+      cx, CONFIG.BASE_Y_OFFSET, 'base-enemy'
+    );
+    this.p2BaseSprite.setScale(128 / this.p2BaseSprite.width);
+    this.p2BaseSprite.setDepth(1);
 
-    graphics.fillStyle(0xff0000); // Red for enemy base
-    for (let i = 0; i < this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_2); i++) {
-      const x = p2BaseX + i * (nodeSize + nodeSpacing);
-      graphics.fillRect(x, p2BaseY - nodeSize / 2, nodeSize, nodeSize);
+    // ── BASE UI strips ──────────────────────────────────────────────────────
+    // Use the image's natural size (no scale) — sits between canvas edge and base mech.
+    const yEdge = CONFIG.BASE_UI_Y_EDGE;
+
+    // Player 1 strip (bottom edge)
+    this.p1BaseUI = this.add.image(cx, CONFIG.CANVAS_HEIGHT - yEdge, 'base-ui');
+    this.p1BaseUI.setDepth(12);
+
+    // Player 2 strip (top edge) — same image, same orientation
+    this.p2BaseUI = this.add.image(cx, yEdge, 'base-ui');
+    this.p2BaseUI.setDepth(12);
+  }
+
+  /**
+   * Draw red X marks on the base_UI strip for depleted HP cells.
+   * Letters B/A/S/E are part of base_UI.webp — we only overlay the X lines.
+   * HP depletes from B first (index 0), then A (1), S (2), E (3).
+   * newlyDeadIndex: if >= 0, that cell's X is animated (just-damaged).
+   */
+  drawHPCells(playerNum, currentHP, newlyDeadIndex = -1) {
+    const cellList = playerNum === PLAYERS.PLAYER_1 ? this.hpCellsP1 : this.hpCellsP2;
+    for (const obj of cellList) obj.destroy();
+    cellList.length = 0;
+
+    // Derive letter X positions and X-mark cell size from the sprite's actual display size
+    const uiSprite = playerNum === PLAYERS.PLAYER_1 ? this.p1BaseUI : this.p2BaseUI;
+    if (!uiSprite) return;
+
+    const uiW = uiSprite.displayWidth;
+    const uiH = uiSprite.displayHeight;
+    const cx  = CONFIG.CANVAS_WIDTH / 2;
+
+    const letterXs = CONFIG.BASE_UI_LETTER_RATIOS.map(r => cx + r * uiW);
+    const cellW    = uiW * CONFIG.BASE_UI_CELL_W_RATIO;
+    const cellH    = uiH * CONFIG.BASE_UI_CELL_H_RATIO;
+
+    // Y center of the letter cells — image centre + small downward offset
+    const cy = uiSprite.y + uiH * CONFIG.BASE_UI_CELL_Y_RATIO;
+
+    // deadCount: how many cells are crossed (B first → index 0)
+    const deadCount = CONFIG.BASE_HP_MAX - currentHP;
+
+    for (let i = 0; i < letterXs.length; i++) {
+      if (i >= deadCount) continue; // cell still alive — no mark
+
+      const cx = letterXs[i];
+
+      if (i === newlyDeadIndex && this.feedbackSystem) {
+        // Animated pencil X drawn progressively
+        const sg = this.feedbackSystem.animateHPStrike(cx, cy, cellW, cellH);
+        cellList.push(sg);
+      } else {
+        // Static pencil X for already-dead cells
+        const sg = this.add.graphics();
+        sg.setDepth(15);
+        for (let pass = 0; pass < 3; pass++) {
+          const jx = (Math.random() - 0.5) * 2;
+          const jy = (Math.random() - 0.5) * 2;
+          const a  = pass === 0 ? 0.25 : pass === 1 ? 0.6 : 0.92;
+          const w  = pass === 0 ? 3.5  : pass === 1 ? 2.5 : 1.8;
+          sg.lineStyle(w, 0xaa1111, a);
+          sg.beginPath();
+          sg.moveTo(cx - cellW / 2 + 9 + jx, cy - cellH / 2 + 9 + jy);
+          sg.lineTo(cx + cellW / 2 - 9 + jx, cy + cellH / 2 - 9 + jy);
+          sg.strokePath();
+        }
+        cellList.push(sg);
+      }
     }
   }
 
   createUI() {
-    // Current player indicator
-    this.playerIndicator = this.add.text(
-      10,
-      10,
-      `Current Player: ${this.gameStateManager.currentPlayer}`,
-      {
-        font: '20px Arial',
-        fill: CONFIG.TEXT_COLOR,
-      }
-    );
-
-    // Turn counter
+    // Turn counter (top-left, rudiment font)
     this.turnIndicator = this.add.text(
-      10,
-      40,
+      10, 10,
       `Turn: ${this.gameStateManager.currentTurn}`,
       {
-        font: '20px Arial',
-        fill: CONFIG.TEXT_COLOR,
+        fontFamily: FONT_TITLE,
+        fontSize: '22px',
+        color: CONFIG.TEXT_COLOR,
+        stroke: '#f5f0e8',   // same as BACKGROUND_COLOR in CSS hex
+        strokeThickness: 4,
       }
     );
 
-    // Player 1 HP
-    this.hp1Indicator = this.add.text(
-      CONFIG.CANVAS_WIDTH - 150,
-      CONFIG.CANVAS_HEIGHT - 50,
-      `Player 1 HP: ${this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_1)}`,
-      {
-        font: '16px Arial',
-        fill: '#00ff00',
-      }
-    );
-
-    // Player 2 HP
-    this.hp2Indicator = this.add.text(
-      CONFIG.CANVAS_WIDTH - 150,
-      10,
-      `Player 2 HP: ${this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_2)}`,
-      {
-        font: '16px Arial',
-        fill: '#ff0000',
-      }
-    );
-
-    // Player 1 Units (shields + weapons)
-    this.p1UnitsIndicator = this.add.text(
-      CONFIG.CANVAS_WIDTH - 150,
-      CONFIG.CANVAS_HEIGHT - 20,
-      `P1 Units: 0S 0W`,
-      {
-        font: '12px Arial',
-        fill: '#00ff00',
-      }
-    );
-
-    // Player 2 Units (shields + weapons)
-    this.p2UnitsIndicator = this.add.text(
-      CONFIG.CANVAS_WIDTH - 150,
-      40,
-      `P2 Units: 0S 0W`,
-      {
-        font: '12px Arial',
-        fill: '#ff0000',
-      }
-    );
-
-    // Instructions
-    this.add.text(
-      CONFIG.CANVAS_WIDTH / 2,
-      CONFIG.CANVAS_HEIGHT / 2,
-      'Draw on the screen to place units or attack',
-      {
-        font: '16px Arial',
-        fill: CONFIG.TEXT_COLOR,
-        align: 'center',
-      }
-    ).setOrigin(0.5);
+    // Initial HP cells (no animation on first draw)
+    this.hpCellsP1 = [];
+    this.hpCellsP2 = [];
+    const initHP1 = this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_1);
+    const initHP2 = this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_2);
+    this.prevHP[PLAYERS.PLAYER_1] = initHP1;
+    this.prevHP[PLAYERS.PLAYER_2] = initHP2;
+    this.drawHPCells(PLAYERS.PLAYER_1, initHP1);
+    this.drawHPCells(PLAYERS.PLAYER_2, initHP2);
   }
 
   /**
-   * Called when a stroke is completed and shape is recognized
+   * Flash a turn notification (YOUR TURN / ENEMY TURN) centred on screen.
+   * Uses sketch_block font. Fades in then out automatically.
+   */
+  showTurnNotification(isYourTurn) {
+    const label = isYourTurn ? 'YOUR TURN' : 'ENEMY TURN';
+    const color = isYourTurn ? '#224499' : '#992222';
+
+    const notif = this.add.text(
+      CONFIG.CANVAS_WIDTH / 2,
+      CONFIG.CANVAS_HEIGHT / 2,
+      label,
+      {
+        fontFamily: FONT_TITLE,
+        fontSize: '52px',
+        color,
+        align: 'center',
+        stroke: '#f5f0e8',
+        strokeThickness: 6,
+      }
+    );
+    notif.setOrigin(0.5);
+    notif.setDepth(80);
+    notif.setAlpha(0);
+
+    // Fade in → hold → fade out
+    this.tweens.add({
+      targets: notif,
+      alpha: { from: 0, to: 1 },
+      duration: 250,
+      yoyo: true,
+      hold: 700,
+      ease: 'Quad.easeInOut',
+      onComplete: () => notif.destroy(),
+    });
+  }
+
+  /**
+   * Called when a stroke is completed
    */
   onStrokeComplete(shapeInfo, stroke) {
-    // Ignore if game is over or action already used
     if (this.isGameOver || this.actionUsedThisTurn) return;
 
     const currentPlayer = this.gameStateManager.currentPlayer;
 
-    // In attack mode: perform attack from stroke start to end (no shape detection needed)
     if (this.attackMode) {
       if (stroke.length >= 2) {
         const startPoint = stroke[0];
         const endPoint = stroke[stroke.length - 1];
-        // Clear drawing system preview before attack visualization
         this.drawingSystem.previewGraphics.clear();
-        this.combatSystem.performAttack(currentPlayer, startPoint.x, startPoint.y, endPoint.x, endPoint.y);
-        this.markActionUsed();
+        // Lock input immediately; call markActionUsed after animation finishes
+        this.actionUsedThisTurn = true;
+        this.combatSystem.performAttack(
+          currentPlayer, startPoint.x, startPoint.y, endPoint.x, endPoint.y
+        ).then(() => {
+          this.markActionUsed();
+        });
       }
       return;
     }
 
-    // Normal mode requires shape detection
     if (!shapeInfo.type) return;
 
     const center = shapeInfo.center;
-
-    // Normal mode: place units
     let placed = false;
 
-    // Place unit based on shape type
     switch (shapeInfo.type) {
-      case 'line':
-        // Line → Shield (concentric around base)
-        placed = this.unitManager.placeShield(currentPlayer);
-        if (placed) {
-          console.log(`Shield placed for ${currentPlayer}`);
+      case 'line': {
+        const shieldResult = this.unitManager.placeShield(currentPlayer);
+        placed = shieldResult === 'ok' || shieldResult === true;
+        if (!placed && this.feedbackSystem) {
+          this.feedbackSystem.showPlacementError(center.x, center.y, shieldResult);
         }
         break;
-
-      case 'triangle':
-        // Triangle → Weapon
-        placed = this.unitManager.placeWeapon(currentPlayer, center.x, center.y);
-        if (placed) {
-          console.log(`Weapon placed for ${currentPlayer}`);
+      }
+      case 'triangle': {
+        const weaponResult = this.unitManager.placeWeapon(currentPlayer, center.x, center.y);
+        placed = weaponResult === 'ok' || weaponResult === true;
+        if (!placed && this.feedbackSystem) {
+          this.feedbackSystem.showPlacementError(center.x, center.y, weaponResult);
         }
         break;
+      }
 
       case 'circle':
-        // Circle → Reserved for future abilities
         console.log('Circle: reserved for special abilities');
         break;
     }
 
-    // Visual feedback - show a marker at the detection point
     this.drawingSystem.drawShape(shapeInfo);
 
-    // Update UI to show unit counts
     if (placed) {
-      this.updateUnitDisplay();
       this.markActionUsed();
     }
   }
 
-  /**
-   * Mark that player has used their action for this turn
-   */
   markActionUsed() {
     this.actionUsedThisTurn = true;
     this.updateUI();
 
-    // Auto switch turn after a short delay
     this.time.delayedCall(800, () => {
       this.switchPlayer();
     });
@@ -279,17 +310,21 @@ export class GameScene extends Phaser.Scene {
     this.attackMode = false;
     this.updateUI();
 
-    // Check if it's AI turn
+    // If showGameOver() was triggered inside updateUI(), stop here.
+    // Any further turn logic (disabling input for AI) would break the restart button.
+    if (this.isGameOver) return;
+
     if (this.enableAI && this.gameStateManager.currentPlayer === PLAYERS.PLAYER_2) {
       this.isAITurn = true;
       this.input.enabled = false;
       this.drawingSystem.isDrawing = false;
 
-      // Execute AI turn after a delay
-      this.time.delayedCall(800, () => {
+      // Show ENEMY TURN notification
+      this.showTurnNotification(false);
+
+      this.time.delayedCall(1200, () => {
         if (this.aiSystem && !this.isGameOver) {
           this.aiSystem.executeTurn().then(() => {
-            // AI turn complete, switch back to player
             this.switchPlayer();
           });
         }
@@ -297,150 +332,91 @@ export class GameScene extends Phaser.Scene {
     } else {
       this.isAITurn = false;
       this.input.enabled = true;
+
+      // Show YOUR TURN notification
+      this.showTurnNotification(true);
     }
   }
 
   updateUI() {
-    const playerText = this.isAITurn ? 'AI (Player 2)' : `Player ${this.gameStateManager.currentPlayer}`;
-    this.playerIndicator.setText(`Current Player: ${playerText}`);
     this.turnIndicator.setText(`Turn: ${this.gameStateManager.currentTurn}`);
-    this.hp1Indicator.setText(`Player 1 HP: ${this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_1)}`);
-    this.hp2Indicator.setText(`Player 2 HP: ${this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_2)}`);
-    this.updateUnitDisplay();
 
-    // Check for game over condition
+    const hp1 = this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_1);
+    const hp2 = this.gameStateManager.getPlayerHP(PLAYERS.PLAYER_2);
+
+    // Detect newly-crossed cell index (B=0, A=1, S=2, E=3); -1 = no change
+    const newDead1 = (this.prevHP[1] !== null && hp1 < this.prevHP[1])
+      ? CONFIG.BASE_HP_MAX - hp1 - 1  // index of newly crossed cell
+      : -1;
+    const newDead2 = (this.prevHP[2] !== null && hp2 < this.prevHP[2])
+      ? CONFIG.BASE_HP_MAX - hp2 - 1
+      : -1;
+
+    this.prevHP[1] = hp1;
+    this.prevHP[2] = hp2;
+
+    this.drawHPCells(PLAYERS.PLAYER_1, hp1, newDead1);
+    this.drawHPCells(PLAYERS.PLAYER_2, hp2, newDead2);
+
     if (this.gameStateManager.isGameOver()) {
       this.showGameOver();
     }
   }
 
-  updateUnitDisplay() {
-    const p1Shields = this.unitManager.getShieldsForPlayer(PLAYERS.PLAYER_1).length;
-    const p1Weapons = this.unitManager.getWeaponsForPlayer(PLAYERS.PLAYER_1).length;
-    const p2Shields = this.unitManager.getShieldsForPlayer(PLAYERS.PLAYER_2).length;
-    const p2Weapons = this.unitManager.getWeaponsForPlayer(PLAYERS.PLAYER_2).length;
-
-    this.p1UnitsIndicator.setText(`P1 Units: ${p1Shields}S ${p1Weapons}W`);
-    this.p2UnitsIndicator.setText(`P2 Units: ${p2Shields}S ${p2Weapons}W`);
-  }
-
-  /**
-   * Show game over screen with winner announcement
-   */
   showGameOver() {
-    if (this.isGameOver) return; // Already showing game over
-
+    if (this.isGameOver) return;
     this.isGameOver = true;
 
-    // Create overlay background (non-interactive)
+    // Re-enable input so the restart button is always clickable,
+    // even if the game ended during the AI's turn (when input was disabled).
+    this.input.enabled = true;
+
     const overlay = this.add.rectangle(
-      CONFIG.CANVAS_WIDTH / 2,
-      CONFIG.CANVAS_HEIGHT / 2,
-      CONFIG.CANVAS_WIDTH,
-      CONFIG.CANVAS_HEIGHT,
-      0x000000,
-      0.7
+      CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 2,
+      CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT,
+      0x000000, 0.65
     );
     overlay.setDepth(100);
 
-    // Get winner
+    // Player 1 (human) wins → YOU WIN; Player 2 (AI) wins → YOU LOSS
     const winner = this.gameStateManager.getWinner();
-    const winnerText = winner === PLAYERS.PLAYER_1 ? 'Player 1' : 'Player 2';
-    const winnerColor = winner === PLAYERS.PLAYER_1 ? '#00ff00' : '#ff0000';
+    const resultText = winner === PLAYERS.PLAYER_1 ? 'YOU WIN' : 'YOU LOSS';
+    const resultColor = winner === PLAYERS.PLAYER_1 ? '#44cc44' : '#cc4444';
 
-    // Display winner text
     const title = this.add.text(
-      CONFIG.CANVAS_WIDTH / 2,
-      CONFIG.CANVAS_HEIGHT / 2 - 60,
-      `${winnerText} Wins!`,
-      {
-        font: 'bold 48px Arial',
-        fill: winnerColor,
-        align: 'center',
-      }
+      CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 3,
+      resultText,
+      { fontFamily: FONT_TITLE, fontSize: '72px', color: resultColor, align: 'center' }
     );
     title.setOrigin(0.5);
     title.setDepth(101);
 
-    // Display game over message
-    const message = this.add.text(
-      CONFIG.CANVAS_WIDTH / 2,
-      CONFIG.CANVAS_HEIGHT / 2,
-      'Game Over',
-      {
-        font: '32px Arial',
-        fill: '#ffffff',
-        align: 'center',
-      }
+    // Restart button — uses button_replay.webp at natural size
+    const replayBtn = this.add.image(
+      CONFIG.CANVAS_WIDTH / 2, (CONFIG.CANVAS_HEIGHT / 3) * 2,
+      'button-replay'
     );
-    message.setOrigin(0.5);
-    message.setDepth(101);
+    replayBtn.setDepth(101);
+    replayBtn.setInteractive({ useHandCursor: true });
 
-    // Create restart button
-    const buttonX = CONFIG.CANVAS_WIDTH / 2;
-    const buttonY = CONFIG.CANVAS_HEIGHT / 2 + 80;
-    const buttonWidth = 200;
-    const buttonHeight = 50;
+    replayBtn.on('pointerover', () => replayBtn.setAlpha(0.8));
+    replayBtn.on('pointerout',  () => replayBtn.setAlpha(1));
+    replayBtn.on('pointerdown', () => this.restartGame());
 
-    const buttonBg = this.add.rectangle(
-      buttonX,
-      buttonY,
-      buttonWidth,
-      buttonHeight,
-      0x4444ff
-    );
-    buttonBg.setDepth(101);
-    buttonBg.setInteractive({ useHandCursor: true });
-
-    const buttonText = this.add.text(
-      buttonX,
-      buttonY,
-      'Restart Game',
-      {
-        font: '20px Arial',
-        fill: '#ffffff',
-        align: 'center',
-      }
-    );
-    buttonText.setOrigin(0.5);
-    buttonText.setDepth(102);
-
-    // Handle button hover
-    buttonBg.on('pointerover', () => {
-      buttonBg.setFillStyle(0x6666ff);
-    });
-
-    buttonBg.on('pointerout', () => {
-      buttonBg.setFillStyle(0x4444ff);
-    });
-
-    // Handle button click
-    buttonBg.on('pointerdown', () => {
-      this.restartGame();
-    });
-
-    // Store game over UI elements for potential cleanup
-    this.gameOverUI = { overlay, title, message, buttonBg, buttonText };
+    this.gameOverUI = { overlay, title, replayBtn };
   }
 
-  /**
-   * Restart the game
-   */
   restartGame() {
     this.gameStateManager.reset();
     this.unitManager.clear();
     this.isGameOver = false;
     this.attackMode = false;
     this.isAITurn = false;
-
-    // Re-enable input
     this.input.enabled = true;
-
-    // Restart the scene
     this.scene.restart();
   }
 
   update() {
-    // Game loop - will be populated in later phases
+    // Game loop
   }
 }

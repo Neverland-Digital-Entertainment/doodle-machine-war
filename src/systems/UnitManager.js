@@ -22,7 +22,7 @@ export class UnitManager {
     const playerShields = this.shields.filter(s => s.playerNum === playerNum);
     if (playerShields.length >= this.maxShieldsPerPlayer) {
       console.log(`Cannot place shield: player already has ${this.maxShieldsPerPlayer} shields`);
-      return false;
+      return 'limit';
     }
 
     // Determine shield layer (1, 2, or 3 based on count)
@@ -31,7 +31,13 @@ export class UnitManager {
     // Create and add shield
     const shield = new Shield(this.scene, playerNum, shieldLayer);
     this.shields.push(shield);
-    return true;
+
+    // Spawn-in effect
+    if (this.scene.feedbackSystem) {
+      this.scene.feedbackSystem.showSpawnEffect(shield.sprite, 'shield');
+    }
+
+    return 'ok';
   }
 
   /**
@@ -39,22 +45,32 @@ export class UnitManager {
    * Returns true if placement succeeds, false if it fails
    */
   placeWeapon(playerNum, x, y) {
+    // Clamp X so the 128px plane stays fully on screen
+    const margin = 64;
+    x = Math.max(margin, Math.min(CONFIG.CANVAS_WIDTH - margin, x));
+
+    // Check zone boundaries (Y only — X is already clamped)
+    if (!this.isValidWeaponZone(playerNum, y)) {
+      console.log('Cannot place weapon: outside valid zone');
+      return 'zone';
+    }
+
     // Check collision with existing units
     if (this.hasCollision(x, y, 30, 30)) {
       console.log('Cannot place weapon: collision detected');
-      return false;
-    }
-
-    // Check zone boundaries
-    if (!this.isValidWeaponPosition(playerNum, x, y)) {
-      console.log('Cannot place weapon: outside valid zone');
-      return false;
+      return 'overlap';
     }
 
     // Create and add weapon
     const weapon = new Weapon(this.scene, playerNum, x, y);
     this.weapons.push(weapon);
-    return true;
+
+    // Spawn-in effect
+    if (this.scene.feedbackSystem) {
+      this.scene.feedbackSystem.showSpawnEffect(weapon.sprite, 'weapon');
+    }
+
+    return 'ok';
   }
 
   /**
@@ -95,16 +111,20 @@ export class UnitManager {
   /**
    * Check if a weapon position is valid for the player's zone
    */
-  isValidWeaponPosition(playerNum, x, y) {
-    // Player 1 (bottom) weapons should be in bottom zone
+  isValidWeaponZone(playerNum, y) {
     if (playerNum === PLAYERS.PLAYER_1) {
       return y > CONFIG.DIVIDER_Y && y < CONFIG.CANVAS_HEIGHT - CONFIG.BASE_Y_OFFSET + 50;
     }
-    // Player 2 (top) weapons should be in top zone
     if (playerNum === PLAYERS.PLAYER_2) {
       return y < CONFIG.DIVIDER_Y && y > CONFIG.BASE_Y_OFFSET - 50;
     }
     return false;
+  }
+
+  isValidWeaponPosition(playerNum, x, y) {
+    const margin = 64;
+    if (x < margin || x > CONFIG.CANVAS_WIDTH - margin) return false;
+    return this.isValidWeaponZone(playerNum, y);
   }
 
   /**
