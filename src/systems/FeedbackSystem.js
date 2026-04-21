@@ -109,8 +109,8 @@ export class FeedbackSystem {
    * Progressively draws a pencil line from (sx,sy) → (ex,ey).
    * onComplete fires after the line is fully drawn and held briefly.
    */
-  animateAttackLine(sx, sy, ex, ey, color, onComplete) {
-    this._playSound('sfx-attack', { volume: 0.85 });
+  animateAttackLine(sx, sy, ex, ey, color, onComplete, sfxKey = 'sfx-attack') {
+    if (sfxKey) this._playSound(sfxKey, { volume: 0.85 });
 
     const g = this.scene.add.graphics();
     g.setDepth(30);

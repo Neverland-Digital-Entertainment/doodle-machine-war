@@ -4,7 +4,7 @@ import { CONFIG } from '../config.js';
 import startBgUrl     from '../images/start_bg.webp';
 import logoUrl        from '../images/logo.webp';
 import buttonStartUrl from '../images/button_start.webp';
-import sfxDestroyUrl from '../sfx/destroy.ogg';
+import sfxScribbleUrl from '../sfx/pencil-scribble.ogg';
 
 const FONT_TITLE = 'sketch_block';
 const FONT_BODY  = 'brown_big_lunch';
@@ -42,7 +42,7 @@ export class MenuScene extends Phaser.Scene {
     this.load.image('start-bg',     startBgUrl);
     this.load.image('logo',         logoUrl);
     this.load.image('button-start', buttonStartUrl);
-    this.load.audio('sfx-destroy',  [sfxDestroyUrl]);
+    this.load.audio('sfx-scribble', [sfxScribbleUrl]);
   }
 
   create() {
@@ -238,7 +238,7 @@ export class MenuScene extends Phaser.Scene {
     startBtn.on('pointerover', () => startBtn.setTint(0xcccccc));
     startBtn.on('pointerout',  () => startBtn.clearTint());
     startBtn.on('pointerdown', () => {
-      try { this.sound.play('sfx-destroy', { volume: 0.9 }); } catch (_) {}
+      try { this.sound.play('sfx-scribble', { volume: 0.9 }); } catch (_) {}
       this.cameras.main.fade(300, 0, 0, 0, false, (_cam, progress) => {
         if (progress === 1) this.scene.start('GameScene');
       });

@@ -26,6 +26,11 @@ export class Cannon {
     // Depth 1 — on the ground, below shields (depth 2) and fighters (depth 3).
     // Shields and fighters render on top so cannons look "protected" by shields.
     this.sprite.setDepth(1);
+
+    // Player 2 (top/enemy) cannon faces downward — rotate 180°
+    if (playerNum === PLAYERS.PLAYER_2) {
+      this.sprite.setAngle(180);
+    }
   }
 
   getBounds() {
@@ -49,13 +54,20 @@ export class Cannon {
    * (same style as destroyed-unit effect) on top of the sprite,
    * plays the destroy sfx, but leaves the cannon sprite on the board.
    */
-  markSpent() {
+  /**
+   * @param {boolean} silent  If true, skip sfx (caller handles audio timing).
+   *                          Used when the cannon fires itself — CombatSystem
+   *                          schedules the scribble sound in the stagger loop.
+   *                          When hit by an enemy, silent=false so the sound
+   *                          plays immediately on impact.
+   */
+  markSpent(silent = false) {
     if (this.spent) return;
     this.spent  = true;
     this.active = false; // no longer a valid raycast target / attacker
 
     // Play destroy sound via FeedbackSystem helper (respects mute)
-    if (this.scene.feedbackSystem) {
+    if (!silent && this.scene.feedbackSystem) {
       this.scene.feedbackSystem._playSound('sfx-scribble', { volume: 0.8 });
       this.scene.time.delayedCall(320, () => {
         this.scene.feedbackSystem._playSound('sfx-destroy', { volume: 0.9 });
