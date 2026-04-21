@@ -168,7 +168,9 @@ export class CombatSystem {
       h.cannon.markSpent();
     }
 
-    // Base damage (if line reaches it) — applied immediately
+    // Base damage (if line reaches it) — logic applied immediately,
+    // but sound + scribble are deferred into the destructions stagger so
+    // they play AFTER the cannon line lands, not before.
     let baseHit = false;
     let baseCX = endX, baseCY = endY;
     if (r.baseHit) {
@@ -179,9 +181,8 @@ export class CombatSystem {
         ? CONFIG.CANVAS_HEIGHT - CONFIG.BASE_Y_OFFSET
         : CONFIG.BASE_Y_OFFSET;
       baseCX = CONFIG.CANVAS_WIDTH / 2;
-      if (this.scene?.feedbackSystem) {
-        this.scene.feedbackSystem._playSound('sfx-destroy', { volume: 0.9 });
-      }
+      // Add base to the stagger queue (sprite=null — base sprite stays on board)
+      destructions.push({ sprite: null, cx: baseCX, cy: baseCY, size: 70, distance: r.baseHit.distance });
       console.log(`Base damaged (piercing)! HP: ${this.gameState.getPlayerHP(defender)}`);
     }
 
