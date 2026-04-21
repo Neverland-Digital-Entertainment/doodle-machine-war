@@ -102,7 +102,7 @@ export class GameScene extends Phaser.Scene {
     this._createSfxToggle();
 
     // BGM — looping background music; respects mute via this.sound.mute
-    this.bgm = this.sound.add('bgm', { loop: true, volume: 0.5 });
+    this.bgm = this.sound.add('bgm', { loop: true, volume: 0.3 });
     if (!this.sound.mute) this.bgm.play();
 
     // Show YOUR TURN on game start
