@@ -17,6 +17,7 @@ import sfxScribbleUrl     from '../sfx/pencil-scribble.ogg';
 import sfxShieldUrl       from '../sfx/shield.ogg';
 import sfxDestroyUrl      from '../sfx/destroy.ogg';
 import sfxCannonUrl       from '../sfx/cannon.ogg';
+import bgmUrl             from '../sfx/bgm.ogg';
 import basePlayerUrl from '../images/base-player.webp';
 import baseEnemyUrl from '../images/base-enemy.webp';
 import baseUIUrl from '../images/base_UI.webp';
@@ -58,6 +59,7 @@ export class GameScene extends Phaser.Scene {
     this.load.audio('sfx-shield',   [sfxShieldUrl]);
     this.load.audio('sfx-destroy',  [sfxDestroyUrl]);
     this.load.audio('sfx-cannon',   [sfxCannonUrl]);
+    this.load.audio('bgm',          [bgmUrl]);
     this.load.image('base-player', basePlayerUrl);
     this.load.image('base-enemy', baseEnemyUrl);
     this.load.image('base-ui', baseUIUrl);
@@ -99,6 +101,10 @@ export class GameScene extends Phaser.Scene {
     // SFX toggle button (bottom-right)
     this._createSfxToggle();
 
+    // BGM — looping background music; respects mute via this.sound.mute
+    this.bgm = this.sound.add('bgm', { loop: true, volume: 0.5 });
+    if (!this.sound.mute) this.bgm.play();
+
     // Show YOUR TURN on game start
     this.time.delayedCall(300, () => this.showTurnNotification(true));
   }
@@ -139,6 +145,11 @@ export class GameScene extends Phaser.Scene {
       muted = !muted; // local flip — guaranteed to toggle
       this.sound.mute = muted;
       localStorage.setItem('dmw_muted', muted ? '1' : '0');
+      // Explicitly pause/resume BGM so it doesn't keep ticking silently
+      if (this.bgm) {
+        if (muted) { this.bgm.pause(); }
+        else        { this.bgm.resume(); }
+      }
       applyVisual();
     });
   }
@@ -563,6 +574,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   restartGame() {
+    // Stop BGM before scene restarts to prevent double-playback
+    if (this.bgm) { this.bgm.stop(); this.bgm = null; }
     this.gameStateManager.reset();
     this.unitManager.clear();
     this.isGameOver = false;
