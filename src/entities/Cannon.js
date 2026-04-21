@@ -23,7 +23,9 @@ export class Cannon {
     const textureKey = playerNum === PLAYERS.PLAYER_1 ? 'cannon-player' : 'cannon-enemy';
     this.sprite = scene.add.image(x, y, textureKey);
     this.sprite.setDisplaySize(110, 110);
-    this.sprite.setDepth(3);
+    // Depth 1 — on the ground, below shields (depth 2) and fighters (depth 3).
+    // Shields and fighters render on top so cannons look "protected" by shields.
+    this.sprite.setDepth(1);
   }
 
   getBounds() {
@@ -61,7 +63,9 @@ export class Cannon {
     }
 
     const g = this.scene.add.graphics();
-    g.setDepth(4);
+    // Scribble sits just above the cannon sprite (depth 1) but still below
+    // shields (2) and fighters (3), keeping the cannon visually "on the ground".
+    g.setDepth(1);
     // Reuse FeedbackSystem's scribble renderer for consistency.
     if (this.scene.feedbackSystem) {
       this.scene.feedbackSystem._scribble(g, this.x, this.y, 70);

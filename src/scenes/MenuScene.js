@@ -13,12 +13,16 @@ const CW = CONFIG.CANVAS_WIDTH;
 const CH = CONFIG.CANVAS_HEIGHT;
 
 // Popup geometry
-const MARGIN  = 32;           // gap from canvas edges
+// Footer is 48px tall at canvas bottom. Leave an 8px gap so the popup's
+// bottom pencil border is never clipped by the footer bar.
+const FOOTER_H = 48;
+const FOOTER_GAP = 8;
+const MARGIN  = 32;           // gap from canvas edges (sides + top)
 const PAD     = 22;           // inner padding
 const PX      = MARGIN;       // popup left
 const PY      = MARGIN;       // popup top
-const PW      = CW - MARGIN * 2;  // 448
-const PH      = CH - MARGIN * 2;  // 832
+const PW      = CW - MARGIN * 2;
+const PH      = CH - MARGIN - FOOTER_H - FOOTER_GAP; // stop above footer
 const DEPTH   = 10;
 
 // Drawing column (left side of each row)
@@ -53,14 +57,14 @@ export class MenuScene extends Phaser.Scene {
 
   /** Black footer with credits across two columns (always on top). */
   _drawFooter() {
-    const H = 34;
+    const H = 48; // taller to comfortably fit 22px body font
     const y = CH - H / 2;
     const bar = this.add.rectangle(CW / 2, y, CW, H, 0x000000, 1);
     bar.setDepth(100);
 
     const leftX  = CW * 0.25;
     const rightX = CW * 0.75;
-    const style  = { fontFamily: FONT_BODY, fontSize: '16px', color: '#f5f0e8' };
+    const style  = { fontFamily: FONT_BODY, fontSize: '22px', color: '#f5f0e8' };
 
     const left  = this.add.text(leftX,  y, 'Game Design: Gary Ng', style).setOrigin(0.5).setDepth(101);
     const right = this.add.text(rightX, y, 'Graphics: Arno Yan',    style).setOrigin(0.5).setDepth(101);

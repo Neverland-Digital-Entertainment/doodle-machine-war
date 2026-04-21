@@ -19,6 +19,8 @@ export class Weapon {
     const textureKey = playerNum === PLAYERS.PLAYER_1 ? 'plane-player' : 'plane-enemy';
     this.sprite = scene.add.image(x, y, textureKey);
     this.sprite.setDisplaySize(128, 128);
+    // Depth 3 — fighters fly above shields (depth 2) and cannons (depth 1).
+    this.sprite.setDepth(3);
 
     // Player 2 (top/enemy) plane faces downward — rotate 180°
     if (playerNum === PLAYERS.PLAYER_2) {
