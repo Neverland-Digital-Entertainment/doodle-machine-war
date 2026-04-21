@@ -516,7 +516,7 @@ export class GameScene extends Phaser.Scene {
     const guideText = this.add.text(
       CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 3 + 96,
       guidance,
-      { fontFamily: FONT_BODY, fontSize: '22px', color: guideColor,
+      { fontFamily: FONT_BODY, fontSize: '30px', color: guideColor,
         stroke: '#222', strokeThickness: 2, align: 'center' }
     );
     guideText.setOrigin(0.5);
