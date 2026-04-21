@@ -86,10 +86,21 @@ export class AISystem {
   }
 
   placeWeapon() {
-    const x = this._randomWeaponX();
-    const y = this._randomWeaponY();
-    const placed = this.unitManager.placeWeapon(this.aiPlayer, x, y);
-    if (placed) console.log('AI placed a weapon');
+    // Retry a few times — a single random spot can collide with an existing
+    // unit and silently fail, which would waste the AI's turn.
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const x = this._randomWeaponX();
+      const y = this._randomWeaponY();
+      const result = this.unitManager.placeWeapon(this.aiPlayer, x, y);
+      if (result === 'ok' || result === true) {
+        console.log('AI placed a weapon');
+        return true;
+      }
+    }
+    console.log('AI failed to place weapon after retries — falling back to shield');
+    // Last-resort fallback so the turn isn't wasted (respects cap internally)
+    this.placeShield();
+    return false;
   }
 
   /**

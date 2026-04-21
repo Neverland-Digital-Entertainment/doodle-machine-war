@@ -321,12 +321,32 @@ export class GameScene extends Phaser.Scene {
         this.drawingSystem.previewGraphics.clear();
         // If the attack originated on a cannon, use a piercing shot.
         const cannonSource = this.cannonAttackSource || null;
+        const piercing = !!cannonSource;
+
+        // Pre-check: does the ray actually reach a valid target?
+        // A "red-line" miss (no shield/weapon/cannon/base hit) must NOT
+        // consume the player's turn — they get to try again.
+        // Piercing shots always consume the turn (cannon fires even if it
+        // hits nothing, and the source is single-use).
+        const preview = this.combatSystem.raycastSystem.castRay(
+          startPoint.x, startPoint.y, endPoint.x, endPoint.y,
+          currentPlayer, { piercing }
+        );
+        const willHit = !!preview.hitTarget;
+
+        if (!willHit && !piercing) {
+          // Miss — allow the player to re-draw. Keep attack mode on so they
+          // don't have to re-click the fighter.
+          this.cannonAttackSource = null;
+          return;
+        }
+
         this.cannonAttackSource = null;
         // Lock input immediately; call markActionUsed after animation finishes
         this.actionUsedThisTurn = true;
         this.combatSystem.performAttack(
           currentPlayer, startPoint.x, startPoint.y, endPoint.x, endPoint.y,
-          { piercing: !!cannonSource, sourceCannon: cannonSource }
+          { piercing, sourceCannon: cannonSource }
         ).then(() => {
           this.markActionUsed();
         });
