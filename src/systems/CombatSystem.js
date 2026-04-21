@@ -131,11 +131,6 @@ export class CombatSystem {
    * - The source cannon is marked spent at the end
    */
   _performPiercingAttack(attackerPlayerNum, startX, startY, endX, endY, sourceCannon) {
-    // Cannon firing sound — plays as the shot leaves the cannon
-    if (this.scene?.feedbackSystem) {
-      this.scene.feedbackSystem._playSound('sfx-cannon', { volume: 0.95 });
-    }
-
     const r = this.raycastSystem.castPiercingRay(
       startX, startY, endX, endY, attackerPlayerNum
     );
@@ -206,7 +201,6 @@ export class CombatSystem {
       this.scene.feedbackSystem.animateAttackLine(
         startX, startY, drawEndX, drawEndY, color,
         () => {
-          // Trigger destruction effects for shields/weapons in order of distance
           destructions.sort((a, b) => a.distance - b.distance);
           destructions.forEach((d, i) => {
             this.scene.time.delayedCall(i * 80, () => {
@@ -216,7 +210,8 @@ export class CombatSystem {
             });
           });
           resolve();
-        }
+        },
+        'sfx-cannon'  // cannon line uses cannon sfx, not fighter sfx-attack
       );
     });
   }
