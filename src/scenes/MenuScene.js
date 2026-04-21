@@ -15,8 +15,8 @@ const CH = CONFIG.CANVAS_HEIGHT;
 // Popup geometry
 // Footer is 48px tall at canvas bottom. Leave an 8px gap so the popup's
 // bottom pencil border is never clipped by the footer bar.
-const FOOTER_H = 48;
-const FOOTER_GAP = 8;
+const FOOTER_H = 38;
+const FOOTER_GAP = 6;
 const MARGIN  = 32;           // gap from canvas edges (sides + top)
 const PAD     = 22;           // inner padding
 const PX      = MARGIN;       // popup left
@@ -57,7 +57,7 @@ export class MenuScene extends Phaser.Scene {
 
   /** Black footer with credits across two columns (always on top). */
   _drawFooter() {
-    const H = 48; // taller to comfortably fit 22px body font
+    const H = 38; // snug fit around 22px body font
     const y = CH - H / 2;
     const bar = this.add.rectangle(CW / 2, y, CW, H, 0x000000, 1);
     bar.setDepth(100);
@@ -145,7 +145,7 @@ export class MenuScene extends Phaser.Scene {
 
       // Row height grows with description length so separators never clip text
       const descBottom = desc.y + desc.height;
-      const rowH = Math.max(108, descBottom - cy + 14);
+      const rowH = Math.max(88, descBottom - cy + 6);
       const rcY  = cy + rowH / 2;
 
       // Pencil sketch illustration (vertically centred in final row)
