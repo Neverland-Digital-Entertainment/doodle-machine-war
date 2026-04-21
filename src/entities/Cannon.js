@@ -26,6 +26,11 @@ export class Cannon {
     // Depth 1 — on the ground, below shields (depth 2) and fighters (depth 3).
     // Shields and fighters render on top so cannons look "protected" by shields.
     this.sprite.setDepth(1);
+
+    // Player 2 (top/enemy) cannon faces downward — rotate 180°
+    if (playerNum === PLAYERS.PLAYER_2) {
+      this.sprite.setAngle(180);
+    }
   }
 
   getBounds() {

@@ -123,9 +123,10 @@ export class AISystem {
     // Cannon attack probability scales with opponent HP pressure:
     // HP4 → 0%, HP3 → 25%, HP2 → 50%, HP1 → 75%
     if (aiCannons.length > 0) {
-      const oppHP = this.gameState.getPlayerHP(this.opponentPlayer);
+      // Based on AI's OWN HP — the more wounded, the more desperate
+      const selfHP = this.gameState.getPlayerHP(this.aiPlayer);
       const cannonProbByHP = { 4: 0, 3: 0.25, 2: 0.5, 1: 0.75 };
-      const p = cannonProbByHP[oppHP] ?? 0;
+      const p = cannonProbByHP[selfHP] ?? 0;
       if (Math.random() < p) {
         await this._executeCannonAttack(aiCannons[0]);
         return;
