@@ -130,6 +130,11 @@ export class CombatSystem {
    * - The source cannon is marked spent at the end
    */
   _performPiercingAttack(attackerPlayerNum, startX, startY, endX, endY, sourceCannon) {
+    // Cannon firing sound — plays as the shot leaves the cannon
+    if (this.scene?.feedbackSystem) {
+      this.scene.feedbackSystem._playSound('sfx-cannon', { volume: 0.95 });
+    }
+
     const r = this.raycastSystem.castPiercingRay(
       startX, startY, endX, endY, attackerPlayerNum
     );

@@ -16,6 +16,7 @@ import sfxAttackUrl       from '../sfx/attack.ogg';
 import sfxScribbleUrl     from '../sfx/pencil-scribble.ogg';
 import sfxShieldUrl       from '../sfx/shield.ogg';
 import sfxDestroyUrl      from '../sfx/destroy.ogg';
+import sfxCannonUrl       from '../sfx/cannon.ogg';
 import basePlayerUrl from '../images/base-player.webp';
 import baseEnemyUrl from '../images/base-enemy.webp';
 import baseUIUrl from '../images/base_UI.webp';
@@ -56,6 +57,7 @@ export class GameScene extends Phaser.Scene {
     this.load.audio('sfx-scribble', [sfxScribbleUrl]);
     this.load.audio('sfx-shield',   [sfxShieldUrl]);
     this.load.audio('sfx-destroy',  [sfxDestroyUrl]);
+    this.load.audio('sfx-cannon',   [sfxCannonUrl]);
     this.load.image('base-player', basePlayerUrl);
     this.load.image('base-enemy', baseEnemyUrl);
     this.load.image('base-ui', baseUIUrl);
