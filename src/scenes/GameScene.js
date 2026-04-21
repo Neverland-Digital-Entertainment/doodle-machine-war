@@ -535,7 +535,7 @@ export class GameScene extends Phaser.Scene {
     replayBtn.on('pointerover', () => replayBtn.setAlpha(0.8));
     replayBtn.on('pointerout',  () => replayBtn.setAlpha(1));
     replayBtn.on('pointerdown', () => {
-      try { this.sound.play('sfx-destroy', { volume: 0.9 }); } catch (_) {}
+      try { this.sound.play('sfx-scribble', { volume: 0.9 }); } catch (_) {}
       this.restartGame();
     });
 
