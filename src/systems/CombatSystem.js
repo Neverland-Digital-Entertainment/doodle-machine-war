@@ -83,10 +83,7 @@ export class CombatSystem {
           : CONFIG.BASE_Y_OFFSET;
         targetCX = CONFIG.CANVAS_WIDTH / 2;
         targetCY = baseY;
-        // Play destroy sound on base hit
-        if (this.scene?.feedbackSystem) {
-          this.scene.feedbackSystem._playSound('sfx-destroy', { volume: 0.9 });
-        }
+        // sfx-scribble + sfx-destroy are played by showDestructionEffect after line animation
         console.log(`Base damaged! HP: ${this.gameState.getPlayerHP(defender)}`);
       }
     }
@@ -106,9 +103,11 @@ export class CombatSystem {
         this.scene.feedbackSystem.animateAttackLine(
           startX, startY, drawEndX, drawEndY, color,
           () => {
-            if (hit && hitResult.targetType !== 'base' && !skipDestructionEffect) {
+            if (hit && !skipDestructionEffect) {
+              // Base hits: sprite is null (base sprite stays); scribble still plays over the hit point
               this.scene.feedbackSystem.showDestructionEffect(
-                targetSprite, targetCX, targetCY, targetSize
+                hitResult.targetType === 'base' ? null : targetSprite,
+                targetCX, targetCY, targetSize
               );
             }
             resolve();
