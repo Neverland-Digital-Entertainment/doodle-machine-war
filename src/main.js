@@ -7,9 +7,9 @@ import { CONFIG } from './config.js';
 // FontFace API uses relative paths; CSS font-loading is NOT blocked by file://
 // CORS (unlike XHR), so this works when the HTML is opened directly from disk.
 async function loadFonts() {
-  const rudiment  = new FontFace('rudiment_medium', 'url(fonts/rudiment_medium.ttf)');
-  const sketchBlock = new FontFace('sketch_block',  'url(fonts/sketch_block.ttf)');
-  const loaded = await Promise.all([rudiment.load(), sketchBlock.load()]);
+  const body        = new FontFace('brown_big_lunch', 'url(fonts/brown_big_lunch.ttf)');
+  const sketchBlock = new FontFace('sketch_block',    'url(fonts/sketch_block.ttf)');
+  const loaded = await Promise.all([body.load(), sketchBlock.load()]);
   loaded.forEach(f => document.fonts.add(f));
 }
 

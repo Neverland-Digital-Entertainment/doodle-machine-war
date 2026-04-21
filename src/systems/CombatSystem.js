@@ -19,19 +19,22 @@ export class CombatSystem {
    * Perform an attack.  Returns a Promise that resolves when the full
    * animation + hit resolution sequence is done.
    */
-  performAttack(attackerPlayerNum, startX, startY, endX, endY) {
+  performAttack(attackerPlayerNum, startX, startY, endX, endY, options = {}) {
+    const { piercing = false, sourceCannon = null } = options;
     const hitResult = this.raycastSystem.castRay(
-      startX, startY, endX, endY, attackerPlayerNum
+      startX, startY, endX, endY, attackerPlayerNum, { piercing }
     );
 
     const hit   = !!hitResult.hitTarget;
-    const color = hit ? 0x228822 : 0xaa2222;
+    // Piercing shots use a distinct orange/red hue so the player sees the difference
+    const color = piercing ? 0xdd6622 : (hit ? 0x228822 : 0xaa2222);
 
     // Capture visual info before any logical destruction
     let targetSprite = null;
     let targetCX = endX;
     let targetCY = endY;
     let targetSize = 60;
+    let skipDestructionEffect = false;
 
     if (hit) {
       if (hitResult.targetType === 'shield') {
@@ -51,6 +54,16 @@ export class CombatSystem {
         targetSize   = 50;
         obj.sprite = null;
         this.unitManager.removeWeapon(obj);
+      } else if (hitResult.targetType === 'cannon') {
+        // Cannon was hit: it stays on the board but is "spent" (scribbled out).
+        const obj = hitResult.targetObject;
+        targetCX = obj.x;
+        targetCY = obj.y;
+        obj.markSpent();
+        skipDestructionEffect = true;
+        if (this.scene?.feedbackSystem) {
+          this.scene.feedbackSystem._playSound('sfx-scribble', { volume: 0.85 });
+        }
       } else if (hitResult.targetType === 'base') {
         // Damage applied immediately so game state is consistent
         const defender = hitResult.hitTarget;
@@ -73,13 +86,18 @@ export class CombatSystem {
     const drawEndX = hit ? targetCX : endX;
     const drawEndY = hit ? targetCY : endY;
 
+    // Mark the source cannon as spent after it fires (single-use).
+    if (sourceCannon && !sourceCannon.spent) {
+      sourceCannon.markSpent();
+    }
+
     // Animate the line, then show destruction effect and resolve
     return new Promise((resolve) => {
       if (this.scene?.feedbackSystem) {
         this.scene.feedbackSystem.animateAttackLine(
           startX, startY, drawEndX, drawEndY, color,
           () => {
-            if (hit && hitResult.targetType !== 'base') {
+            if (hit && hitResult.targetType !== 'base' && !skipDestructionEffect) {
               this.scene.feedbackSystem.showDestructionEffect(
                 targetSprite, targetCX, targetCY, targetSize
               );

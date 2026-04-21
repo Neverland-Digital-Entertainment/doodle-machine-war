@@ -22,9 +22,12 @@ import baseUIUrl from '../images/base_UI.webp';
 import planePlayerUrl from '../images/plane-player.webp';
 import planeEnemyUrl from '../images/plane-enemy.webp';
 import shieldUrl from '../images/shield.webp';
+import sfxIconUrl from '../images/sfx.webp';
+import cannonPlayerUrl from '../images/cannon-player.webp';
+import cannonEnemyUrl from '../images/cannon-enemy.webp';
 
 // Font family names (loaded in main.js via FontFace API)
-const FONT_BODY  = 'rudiment_medium';
+const FONT_BODY  = 'brown_big_lunch';
 const FONT_TITLE = 'sketch_block';
 
 export class GameScene extends Phaser.Scene {
@@ -59,6 +62,9 @@ export class GameScene extends Phaser.Scene {
     this.load.image('plane-player', planePlayerUrl);
     this.load.image('plane-enemy', planeEnemyUrl);
     this.load.image('shield', shieldUrl);
+    this.load.image('sfx-icon', sfxIconUrl);
+    this.load.image('cannon-player', cannonPlayerUrl);
+    this.load.image('cannon-enemy',  cannonEnemyUrl);
   }
 
   create() {
@@ -88,8 +94,49 @@ export class GameScene extends Phaser.Scene {
       this.updateUI();
     });
 
+    // SFX toggle button (bottom-right)
+    this._createSfxToggle();
+
     // Show YOUR TURN on game start
     this.time.delayedCall(300, () => this.showTurnNotification(true));
+  }
+
+  /**
+   * Create the SFX on/off toggle button in the bottom-right corner.
+   * Persists state in localStorage.dmw_muted.
+   * When muted, the icon is tinted grey to show the disabled state.
+   */
+  _createSfxToggle() {
+    const muted = localStorage.getItem('dmw_muted') === '1';
+    this.sound.mute = muted;
+
+    const margin = 18;
+    const btn = this.add.image(
+      CONFIG.CANVAS_WIDTH  - margin,
+      CONFIG.CANVAS_HEIGHT - margin,
+      'sfx-icon'
+    );
+    btn.setOrigin(1, 1);
+    btn.setDepth(50);
+    btn.setInteractive({ useHandCursor: true });
+
+    const applyMuteVisual = (m) => {
+      if (m) {
+        btn.setTint(0x666666); // grey when muted
+        btn.setAlpha(0.7);
+      } else {
+        btn.clearTint();
+        btn.setAlpha(1);
+      }
+    };
+    applyMuteVisual(muted);
+
+    btn.on('pointerdown', () => {
+      const newMuted = !this.sound.mute;
+      this.sound.mute = newMuted;
+      localStorage.setItem('dmw_muted', newMuted ? '1' : '0');
+      applyMuteVisual(newMuted);
+    });
   }
 
   drawLayout() {
@@ -268,10 +315,14 @@ export class GameScene extends Phaser.Scene {
         const startPoint = stroke[0];
         const endPoint = stroke[stroke.length - 1];
         this.drawingSystem.previewGraphics.clear();
+        // If the attack originated on a cannon, use a piercing shot.
+        const cannonSource = this.cannonAttackSource || null;
+        this.cannonAttackSource = null;
         // Lock input immediately; call markActionUsed after animation finishes
         this.actionUsedThisTurn = true;
         this.combatSystem.performAttack(
-          currentPlayer, startPoint.x, startPoint.y, endPoint.x, endPoint.y
+          currentPlayer, startPoint.x, startPoint.y, endPoint.x, endPoint.y,
+          { piercing: !!cannonSource, sourceCannon: cannonSource }
         ).then(() => {
           this.markActionUsed();
         });
@@ -302,9 +353,16 @@ export class GameScene extends Phaser.Scene {
         break;
       }
 
-      case 'circle':
-        console.log('Circle: reserved for special abilities');
+      case 'circle': {
+        const cannonResult = this.unitManager.placeCannon(currentPlayer, center.x, center.y);
+        placed = cannonResult === 'ok';
+        if (!placed && this.feedbackSystem) {
+          // Map 'limit' to a friendly label — player already has a cannon.
+          const reason = cannonResult === 'limit' ? 'cannon-used' : cannonResult;
+          this.feedbackSystem.showPlacementError(center.x, center.y, reason);
+        }
         break;
+      }
     }
 
     this.drawingSystem.drawShape(shapeInfo);
