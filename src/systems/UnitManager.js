@@ -1,6 +1,7 @@
 import { CONFIG, PLAYERS } from '../config.js';
 import { Shield } from '../entities/Shield.js';
 import { Weapon } from '../entities/Weapon.js';
+import { Cannon } from '../entities/Cannon.js';
 
 /**
  * UnitManager - Manages placement, collision detection, and limits for units
@@ -10,7 +11,52 @@ export class UnitManager {
     this.scene = scene;
     this.shields = [];
     this.weapons = [];
+    this.cannons = []; // max 1 per player per battle; spent cannons stay here for visuals
     this.maxShieldsPerPlayer = 3;
+    this.maxCannonsPerPlayer = 1;
+  }
+
+  /**
+   * Try to place a cannon at (x, y). Returns 'ok' | 'limit' | 'zone' | 'overlap'.
+   * Limit counts both active and spent cannons — only 1 per battle.
+   */
+  placeCannon(playerNum, x, y) {
+    const allOwned = this.cannons.filter(c => c.playerNum === playerNum);
+    if (allOwned.length >= this.maxCannonsPerPlayer) {
+      console.log('Cannot place cannon: already have one this battle');
+      return 'limit';
+    }
+
+    // Same zone rules as weapons
+    if (!this.isValidWeaponZone(playerNum, y)) {
+      return 'zone';
+    }
+
+    // Clamp X so 110px sprite stays on screen
+    const margin = 60;
+    x = Math.max(margin, Math.min(CONFIG.CANVAS_WIDTH - margin, x));
+
+    if (this.hasCollision(x, y, 80, 80)) {
+      return 'overlap';
+    }
+
+    const cannon = new Cannon(this.scene, playerNum, x, y);
+    this.cannons.push(cannon);
+
+    if (this.scene.feedbackSystem) {
+      this.scene.feedbackSystem.showSpawnEffect(cannon.sprite, 'weapon');
+    }
+    return 'ok';
+  }
+
+  /** Active (unspent) cannons for a player. */
+  getCannonsForPlayer(playerNum) {
+    return this.cannons.filter(c => c.playerNum === playerNum && c.active);
+  }
+
+  /** All cannons (active + spent). Used for collision checks & placement limit. */
+  getAllCannonsForPlayer(playerNum) {
+    return this.cannons.filter(c => c.playerNum === playerNum);
   }
 
   /**
@@ -89,6 +135,13 @@ export class UnitManager {
     // Check weapons collision with other weapons
     for (const weapon of this.weapons) {
       if (this.boundsOverlap(testBounds, weapon.getBounds())) {
+        return true;
+      }
+    }
+
+    // Cannons (active + spent) — they still occupy board space visually
+    for (const cannon of this.cannons) {
+      if (this.boundsOverlap(testBounds, cannon.getBounds())) {
         return true;
       }
     }
@@ -187,7 +240,11 @@ export class UnitManager {
     for (const weapon of this.weapons) {
       weapon.destroy();
     }
+    for (const cannon of this.cannons) {
+      cannon.destroy();
+    }
     this.shields = [];
     this.weapons = [];
+    this.cannons = [];
   }
 }

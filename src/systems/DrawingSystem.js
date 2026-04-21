@@ -44,7 +44,9 @@ export class DrawingSystem {
     this.graphics.clear();
     this.previewGraphics.clear();
 
-    // Check if mousedown is on a weapon - auto enable attack mode
+    // Check if mousedown is on a weapon or an active cannon — auto enable attack mode.
+    // Cannons set `cannonAttackSource` so the scene knows to use a piercing shot.
+    this.scene.cannonAttackSource = null;
     if (this.scene.unitManager) {
       const currentPlayer = this.scene.gameStateManager.currentPlayer;
       const playerWeapons = this.scene.unitManager.getWeaponsForPlayer(currentPlayer);
@@ -52,13 +54,23 @@ export class DrawingSystem {
       for (const weapon of playerWeapons) {
         const bounds = weapon.getBounds();
         if (
-          pointer.x >= bounds.minX &&
-          pointer.x <= bounds.maxX &&
-          pointer.y >= bounds.minY &&
-          pointer.y <= bounds.maxY
+          pointer.x >= bounds.minX && pointer.x <= bounds.maxX &&
+          pointer.y >= bounds.minY && pointer.y <= bounds.maxY
         ) {
           this.scene.attackMode = true;
           break;
+        }
+      }
+
+      // Active (unspent) cannons can fire once — piercing attack.
+      if (!this.scene.attackMode && this.scene.unitManager.getCannonsForPlayer) {
+        const playerCannons = this.scene.unitManager.getCannonsForPlayer(currentPlayer);
+        for (const cannon of playerCannons) {
+          if (cannon.contains(pointer.x, pointer.y)) {
+            this.scene.attackMode = true;
+            this.scene.cannonAttackSource = cannon;
+            break;
+          }
         }
       }
     }
@@ -160,15 +172,19 @@ export class DrawingSystem {
     const startPoint = this.currentStroke[0];
     const endPoint = this.currentStroke[this.currentStroke.length - 1];
 
+    const piercing = !!this.scene.cannonAttackSource;
     const hitResult = this.scene.combatSystem.raycastSystem.castRay(
       startPoint.x,
       startPoint.y,
       endPoint.x,
       endPoint.y,
-      this.scene.gameStateManager.currentPlayer
+      this.scene.gameStateManager.currentPlayer,
+      { piercing }
     );
 
-    const color = hitResult.hitTarget ? 0x228822 : 0xaa2222;
+    const color = piercing
+      ? 0xdd6622                            // orange = piercing cannon shot
+      : (hitResult.hitTarget ? 0x228822 : 0xaa2222);
     const linePoints = [startPoint, endPoint];
 
     // Pencil-style preview line

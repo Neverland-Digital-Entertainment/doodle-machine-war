@@ -6,7 +6,7 @@ import logoUrl        from '../images/logo.webp';
 import buttonStartUrl from '../images/button_start.webp';
 
 const FONT_TITLE = 'sketch_block';
-const FONT_BODY  = 'rudiment_medium';
+const FONT_BODY  = 'brown_big_lunch';
 
 const CW = CONFIG.CANVAS_WIDTH;
 const CH = CONFIG.CANVAS_HEIGHT;
@@ -46,6 +46,22 @@ export class MenuScene extends Phaser.Scene {
     bg.setDepth(0);
 
     this._showPopup();
+    this._drawFooter();
+  }
+
+  /** Black footer with credits across two columns (always on top). */
+  _drawFooter() {
+    const H = 34;
+    const y = CH - H / 2;
+    const bar = this.add.rectangle(CW / 2, y, CW, H, 0x000000, 1);
+    bar.setDepth(100);
+
+    const leftX  = CW * 0.25;
+    const rightX = CW * 0.75;
+    const style  = { fontFamily: FONT_BODY, fontSize: '14px', color: '#f5f0e8' };
+
+    const left  = this.add.text(leftX,  y, 'Game Design: Gary Ng', style).setOrigin(0.5).setDepth(101);
+    const right = this.add.text(rightX, y, 'Graphics: Arno Yan',    style).setOrigin(0.5).setDepth(101);
   }
 
   // ── Popup ──────────────────────────────────────────────────────────────────
@@ -106,9 +122,8 @@ export class MenuScene extends Phaser.Scene {
       {
         draw: (g, cx, rcY) => this._sketchCircle2(g, cx, rcY),
         name: 'CANNON',
-        nameColor: '#888888',
-        desc: 'Draw a CIRCLE to build a Cannon.\n(Coming soon!)',
-        dim: true,
+        nameColor: '#6a4a1f',
+        desc: 'Draw a CIRCLE to build a Cannon (1 per battle). Its shot pierces through all Shields — but it\'s spent after firing OR being hit.',
       },
     ];
 

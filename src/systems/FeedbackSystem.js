@@ -282,9 +282,10 @@ export class FeedbackSystem {
     }
 
     // Label
-    const label = reason === 'overlap' ? 'NO SPACE'
-                : reason === 'limit'   ? 'SHIELD FULL'
-                :                        'OUT OF ZONE';
+    const label = reason === 'overlap'      ? 'NO SPACE'
+                : reason === 'limit'        ? 'SHIELD FULL'
+                : reason === 'cannon-used'  ? 'CANNON USED'
+                :                              'OUT OF ZONE';
     const txt = this.scene.add.text(x, y - r - 14, label, {
       fontFamily: 'sketch_block',
       fontSize: '16px',

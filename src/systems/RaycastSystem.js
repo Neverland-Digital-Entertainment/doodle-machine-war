@@ -17,10 +17,11 @@ export class RaycastSystem {
    * 2. Weapon
    * 3. Base (lowest priority)
    */
-  castRay(startX, startY, endX, endY, attackerPlayerNum) {
+  castRay(startX, startY, endX, endY, attackerPlayerNum, options = {}) {
+    const { piercing = false } = options;
     const result = {
       hitTarget: null,
-      targetType: null, // 'shield', 'weapon', 'base'
+      targetType: null, // 'shield', 'weapon', 'cannon', 'base'
       targetObject: null,
       hitPoint: null,
       distance: 0,
@@ -29,29 +30,44 @@ export class RaycastSystem {
     // Determine defender based on attacker
     const defenderPlayerNum = attackerPlayerNum === PLAYERS.PLAYER_1 ? PLAYERS.PLAYER_2 : PLAYERS.PLAYER_1;
 
-    // 1. Check shield collisions (highest priority)
-    const shieldHit = this.checkShieldCollision(startX, startY, endX, endY, defenderPlayerNum);
-    if (shieldHit) {
-      result.hitTarget = shieldHit.shield;
-      result.targetType = 'shield';
-      result.targetObject = shieldHit.shield;
-      result.hitPoint = shieldHit.hitPoint;
-      result.distance = shieldHit.distance;
-      return result;
+    // Piercing shots (cannon) bypass all defences and go straight to the base.
+    if (!piercing) {
+      // 1. Shields (highest priority)
+      const shieldHit = this.checkShieldCollision(startX, startY, endX, endY, defenderPlayerNum);
+      if (shieldHit) {
+        result.hitTarget = shieldHit.shield;
+        result.targetType = 'shield';
+        result.targetObject = shieldHit.shield;
+        result.hitPoint = shieldHit.hitPoint;
+        result.distance = shieldHit.distance;
+        return result;
+      }
+
+      // 2a. Weapons & cannons — same tier; pick whichever is closest
+      const weaponHit = this.checkWeaponCollision(startX, startY, endX, endY, defenderPlayerNum);
+      const cannonHit = this.checkCannonCollision(startX, startY, endX, endY, defenderPlayerNum);
+      let midHit = null;
+      if (weaponHit && cannonHit) {
+        midHit = weaponHit.distance <= cannonHit.distance
+          ? { kind: 'weapon', ...weaponHit }
+          : { kind: 'cannon', ...cannonHit };
+      } else if (weaponHit) {
+        midHit = { kind: 'weapon', ...weaponHit };
+      } else if (cannonHit) {
+        midHit = { kind: 'cannon', ...cannonHit };
+      }
+      if (midHit) {
+        const obj = midHit.kind === 'weapon' ? midHit.weapon : midHit.cannon;
+        result.hitTarget = obj;
+        result.targetType = midHit.kind;
+        result.targetObject = obj;
+        result.hitPoint = midHit.hitPoint;
+        result.distance = midHit.distance;
+        return result;
+      }
     }
 
-    // 2. Check weapon collisions (medium priority)
-    const weaponHit = this.checkWeaponCollision(startX, startY, endX, endY, defenderPlayerNum);
-    if (weaponHit) {
-      result.hitTarget = weaponHit.weapon;
-      result.targetType = 'weapon';
-      result.targetObject = weaponHit.weapon;
-      result.hitPoint = weaponHit.hitPoint;
-      result.distance = weaponHit.distance;
-      return result;
-    }
-
-    // 3. Check base collision (lowest priority)
+    // Base collision (always checked; only one reached in piercing mode)
     const baseHit = this.checkBaseCollision(startX, startY, endX, endY, defenderPlayerNum);
     if (baseHit) {
       result.hitTarget = defenderPlayerNum;
@@ -101,6 +117,27 @@ export class RaycastSystem {
       }
     }
 
+    return closestHit;
+  }
+
+  /**
+   * Check if ray intersects any active (unspent) cannons.
+   * Spent cannons are NOT included — they're just scenery.
+   */
+  checkCannonCollision(x1, y1, x2, y2, playerNum) {
+    if (!this.unitManager.getCannonsForPlayer) return null;
+    const cannons = this.unitManager.getCannonsForPlayer(playerNum);
+    let closestHit = null;
+    let closestDistance = Infinity;
+
+    for (const cannon of cannons) {
+      const bounds = cannon.getBounds();
+      const hit = this.rayRectIntersection(x1, y1, x2, y2, bounds);
+      if (hit && hit.distance < closestDistance) {
+        closestHit = { cannon, hitPoint: hit.point, distance: hit.distance };
+        closestDistance = hit.distance;
+      }
+    }
     return closestHit;
   }
 
