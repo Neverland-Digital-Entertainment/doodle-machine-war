@@ -107,7 +107,9 @@ export class GameScene extends Phaser.Scene {
    * When muted, the icon is tinted grey to show the disabled state.
    */
   _createSfxToggle() {
-    const muted = localStorage.getItem('dmw_muted') === '1';
+    // Track mute state locally so clicks always flip reliably,
+    // independent of Phaser's internal sound.mute flag.
+    let muted = localStorage.getItem('dmw_muted') === '1';
     this.sound.mute = muted;
 
     const margin = 18;
@@ -120,22 +122,22 @@ export class GameScene extends Phaser.Scene {
     btn.setDepth(50);
     btn.setInteractive({ useHandCursor: true });
 
-    const applyMuteVisual = (m) => {
-      if (m) {
-        btn.setTint(0x666666); // grey when muted
+    const applyVisual = () => {
+      if (muted) {
+        btn.setTint(0x666666);
         btn.setAlpha(0.7);
       } else {
         btn.clearTint();
         btn.setAlpha(1);
       }
     };
-    applyMuteVisual(muted);
+    applyVisual();
 
     btn.on('pointerdown', () => {
-      const newMuted = !this.sound.mute;
-      this.sound.mute = newMuted;
-      localStorage.setItem('dmw_muted', newMuted ? '1' : '0');
-      applyMuteVisual(newMuted);
+      muted = !muted; // local flip — guaranteed to toggle
+      this.sound.mute = muted;
+      localStorage.setItem('dmw_muted', muted ? '1' : '0');
+      applyVisual();
     });
   }
 
@@ -514,7 +516,7 @@ export class GameScene extends Phaser.Scene {
     const guideText = this.add.text(
       CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 3 + 96,
       guidance,
-      { fontFamily: FONT_BODY, fontSize: '20px', color: guideColor,
+      { fontFamily: FONT_BODY, fontSize: '30px', color: guideColor,
         stroke: '#222', strokeThickness: 2, align: 'center' }
     );
     guideText.setOrigin(0.5);
@@ -530,7 +532,10 @@ export class GameScene extends Phaser.Scene {
 
     replayBtn.on('pointerover', () => replayBtn.setAlpha(0.8));
     replayBtn.on('pointerout',  () => replayBtn.setAlpha(1));
-    replayBtn.on('pointerdown', () => this.restartGame());
+    replayBtn.on('pointerdown', () => {
+      try { this.sound.play('sfx-destroy', { volume: 0.9 }); } catch (_) {}
+      this.restartGame();
+    });
 
     this.gameOverUI = { overlay, title, turnText, guideText, replayBtn };
   }

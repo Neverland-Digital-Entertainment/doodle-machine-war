@@ -41,27 +41,42 @@ export class AISystem {
     if (weapons.length > 0) {
       for (let i = 0; i < w.attack; i++) actionPool.push('attack');
     }
-    // Always allow weapon placement
-    for (let i = 0; i < w.weapon; i++) actionPool.push('weapon');
+    // Always allow unit placement (weapon OR cannon — decided later 60/40)
+    for (let i = 0; i < w.weapon; i++) actionPool.push('unit');
     // Shield only if under cap
     if (shields.length < 3) {
       for (let i = 0; i < w.shield; i++) actionPool.push('shield');
     }
 
-    // Fallback: if no weapons yet, just place weapon or shield
-    const pool = actionPool.length > 0 ? actionPool : ['weapon'];
+    // Fallback: if no weapons yet, just place a unit or shield
+    const pool = actionPool.length > 0 ? actionPool : ['unit'];
     const action = pool[Math.floor(Math.random() * pool.length)];
 
     switch (action) {
       case 'shield':
         this.placeShield();
         break;
-      case 'weapon':
-        this.placeWeapon();
+      case 'unit':
+        this.placeUnit();
         break;
       case 'attack':
         await this.executeAttack();
         break;
+    }
+  }
+
+  /**
+   * Decide between weapon vs cannon placement.
+   * Ratio is 60/40 (weapon/cannon), but cannon is capped at 1 per battle —
+   * if one already exists (active or spent), always place a weapon.
+   */
+  placeUnit() {
+    const ownedCannons = this.unitManager.getAllCannonsForPlayer(this.aiPlayer);
+    const wantCannon = ownedCannons.length === 0 && Math.random() < 0.40;
+    if (wantCannon) {
+      this.placeCannon();
+    } else {
+      this.placeWeapon();
     }
   }
 
@@ -78,11 +93,45 @@ export class AISystem {
   }
 
   /**
+   * Place cannon hugging the AI base (top of the field) so it's harder to
+   * destroy behind the shield layer.  Retries a few times if collision fails.
+   */
+  placeCannon() {
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const x = 120 + Math.random() * (CONFIG.CANVAS_WIDTH - 240);
+      // AI is PLAYER_2 (top). Base is at BASE_Y_OFFSET; park cannon 40-90px below it
+      const y = CONFIG.BASE_Y_OFFSET + 40 + Math.random() * 50;
+      const result = this.unitManager.placeCannon(this.aiPlayer, x, y);
+      if (result === 'ok') {
+        console.log('AI placed a cannon near base');
+        return;
+      }
+      if (result === 'limit') return; // already has one
+    }
+    // If cannon placement keeps failing, fall back to a weapon so the turn isn't wasted
+    this.placeWeapon();
+  }
+
+  /**
    * Attack from a random AI weapon toward a random opponent target.
    * Returns the Promise from performAttack so executeTurn can await it.
    */
   async executeAttack() {
     const aiWeapons = this.unitManager.getWeaponsForPlayer(this.aiPlayer);
+    const aiCannons = this.unitManager.getCannonsForPlayer(this.aiPlayer);
+
+    // Cannon attack probability scales with opponent HP pressure:
+    // HP4 → 0%, HP3 → 25%, HP2 → 50%, HP1 → 75%
+    if (aiCannons.length > 0) {
+      const oppHP = this.gameState.getPlayerHP(this.opponentPlayer);
+      const cannonProbByHP = { 4: 0, 3: 0.25, 2: 0.5, 1: 0.75 };
+      const p = cannonProbByHP[oppHP] ?? 0;
+      if (Math.random() < p) {
+        await this._executeCannonAttack(aiCannons[0]);
+        return;
+      }
+    }
+
     if (aiWeapons.length === 0) return; // safety — should not happen (action filtered above)
 
     // Attacker: random AI plane
@@ -112,6 +161,19 @@ export class AISystem {
 
     await this.combatSystem.performAttack(
       this.aiPlayer, startX, startY, target.x, target.y
+    );
+  }
+
+  /**
+   * Piercing cannon shot — straight down the middle toward opponent base.
+   */
+  async _executeCannonAttack(cannon) {
+    const targetX = CONFIG.CANVAS_WIDTH / 2;
+    const targetY = CONFIG.CANVAS_HEIGHT - CONFIG.BASE_Y_OFFSET; // opponent is PLAYER_1 (bottom)
+    console.log('AI firing cannon (piercing) at base');
+    await this.combatSystem.performAttack(
+      this.aiPlayer, cannon.x, cannon.y, targetX, targetY,
+      { piercing: true, sourceCannon: cannon }
     );
   }
 
