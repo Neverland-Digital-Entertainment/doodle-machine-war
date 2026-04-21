@@ -43,32 +43,39 @@ export class Cannon {
   }
 
   /**
-   * Mark cannon as spent and draw a scribble-X on top of it.
-   * Called after it fires, or after it's hit.
+   * Mark cannon as spent. Draws a persistent random-scribble
+   * (same style as destroyed-unit effect) on top of the sprite,
+   * plays the destroy sfx, but leaves the cannon sprite on the board.
    */
   markSpent() {
     if (this.spent) return;
     this.spent  = true;
     this.active = false; // no longer a valid raycast target / attacker
 
+    // Play destroy sound via FeedbackSystem helper (respects mute)
+    if (this.scene.feedbackSystem) {
+      this.scene.feedbackSystem._playSound('sfx-scribble', { volume: 0.8 });
+      this.scene.time.delayedCall(320, () => {
+        this.scene.feedbackSystem._playSound('sfx-destroy', { volume: 0.9 });
+      });
+    }
+
     const g = this.scene.add.graphics();
     g.setDepth(4);
-    const cx = this.x, cy = this.y;
-    const half = 36;
-    // Pencil-style scribbled X (3 jittered passes)
-    for (let p = 0; p < 3; p++) {
-      const lw = p === 0 ? 4.5 : p === 1 ? 3 : 1.6;
-      const a  = p === 0 ? 0.30 : p === 1 ? 0.65 : 0.92;
-      const j = () => (Math.random() - 0.5) * (p === 0 ? 3 : 1.4);
-      g.lineStyle(lw, 0x222222, a);
-      g.beginPath();
-      g.moveTo(cx - half + j(), cy - half + j());
-      g.lineTo(cx + half + j(), cy + half + j());
-      g.strokePath();
-      g.beginPath();
-      g.moveTo(cx + half + j(), cy - half + j());
-      g.lineTo(cx - half + j(), cy + half + j());
-      g.strokePath();
+    // Reuse FeedbackSystem's scribble renderer for consistency.
+    if (this.scene.feedbackSystem) {
+      this.scene.feedbackSystem._scribble(g, this.x, this.y, 70);
+    } else {
+      // Fallback simple scribble
+      g.lineStyle(2, 0x222222, 0.8);
+      for (let i = 0; i < 14; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const len = 30 + Math.random() * 30;
+        g.beginPath();
+        g.moveTo(this.x + Math.cos(a) * -len / 2, this.y + Math.sin(a) * -len / 2);
+        g.lineTo(this.x + Math.cos(a) * len / 2,  this.y + Math.sin(a) * len / 2);
+        g.strokePath();
+      }
     }
     this.xOverlay = g;
   }

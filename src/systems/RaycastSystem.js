@@ -121,6 +121,48 @@ export class RaycastSystem {
   }
 
   /**
+   * Piercing ray: returns ALL shields, weapons, cannons, and the base (if hit)
+   * intersected by the ray. Used for cannon attacks which ignore blocking.
+   */
+  castPiercingRay(startX, startY, endX, endY, attackerPlayerNum) {
+    const defenderPlayerNum = attackerPlayerNum === PLAYERS.PLAYER_1
+      ? PLAYERS.PLAYER_2
+      : PLAYERS.PLAYER_1;
+
+    const shieldHits = [];
+    for (const shield of this.unitManager.getShieldsForPlayer(defenderPlayerNum)) {
+      const hit = this.rayCircleIntersection(
+        startX, startY, endX, endY, shield.centerX, shield.centerY, shield.radius
+      );
+      if (hit) shieldHits.push({ shield, hitPoint: hit.point, distance: hit.distance });
+    }
+
+    const weaponHits = [];
+    for (const weapon of this.unitManager.getWeaponsForPlayer(defenderPlayerNum)) {
+      const hit = this.rayRectIntersection(startX, startY, endX, endY, weapon.getBounds());
+      if (hit) weaponHits.push({ weapon, hitPoint: hit.point, distance: hit.distance });
+    }
+
+    const cannonHits = [];
+    if (this.unitManager.getCannonsForPlayer) {
+      for (const cannon of this.unitManager.getCannonsForPlayer(defenderPlayerNum)) {
+        const hit = this.rayRectIntersection(startX, startY, endX, endY, cannon.getBounds());
+        if (hit) cannonHits.push({ cannon, hitPoint: hit.point, distance: hit.distance });
+      }
+    }
+
+    const baseHit = this.checkBaseCollision(startX, startY, endX, endY, defenderPlayerNum);
+
+    return {
+      shieldHits,
+      weaponHits,
+      cannonHits,
+      baseHit,              // {hitPoint, distance} or null
+      defender: defenderPlayerNum,
+    };
+  }
+
+  /**
    * Check if ray intersects any active (unspent) cannons.
    * Spent cannons are NOT included — they're just scenery.
    */

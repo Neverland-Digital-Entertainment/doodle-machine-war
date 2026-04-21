@@ -4,6 +4,7 @@ import { CONFIG } from '../config.js';
 import startBgUrl     from '../images/start_bg.webp';
 import logoUrl        from '../images/logo.webp';
 import buttonStartUrl from '../images/button_start.webp';
+import sfxDestroyUrl from '../sfx/destroy.ogg';
 
 const FONT_TITLE = 'sketch_block';
 const FONT_BODY  = 'brown_big_lunch';
@@ -37,6 +38,7 @@ export class MenuScene extends Phaser.Scene {
     this.load.image('start-bg',     startBgUrl);
     this.load.image('logo',         logoUrl);
     this.load.image('button-start', buttonStartUrl);
+    this.load.audio('sfx-destroy',  [sfxDestroyUrl]);
   }
 
   create() {
@@ -58,7 +60,7 @@ export class MenuScene extends Phaser.Scene {
 
     const leftX  = CW * 0.25;
     const rightX = CW * 0.75;
-    const style  = { fontFamily: FONT_BODY, fontSize: '14px', color: '#f5f0e8' };
+    const style  = { fontFamily: FONT_BODY, fontSize: '16px', color: '#f5f0e8' };
 
     const left  = this.add.text(leftX,  y, 'Game Design: Gary Ng', style).setOrigin(0.5).setDepth(101);
     const right = this.add.text(rightX, y, 'Graphics: Arno Yan',    style).setOrigin(0.5).setDepth(101);
@@ -94,7 +96,7 @@ export class MenuScene extends Phaser.Scene {
 
     const goalBody = this._txt(PX + PAD, cy,
       'Attack the enemy\'s BASE until all 4 letters — B, A, S, E — are crossed out. Each hit removes one letter. Cross them all out before the enemy does the same to yours!',
-      FONT_BODY, 20, '#2a2a2a', d + 1, PW - PAD * 2);
+      FONT_BODY, 22, '#2a2a2a', d + 1, PW - PAD * 2);
     objs.push(goalBody);
     cy += goalBody.height + 14;
 
@@ -143,7 +145,7 @@ export class MenuScene extends Phaser.Scene {
       const nm = this._txt(TEXT_X, cy + 6, row.name, FONT_TITLE, 22, nameColor, d + 1);
       objs.push(nm);
 
-      const desc = this._txt(TEXT_X, cy + 34, row.desc, FONT_BODY, 20, bodyColor, d + 1, TEXT_W);
+      const desc = this._txt(TEXT_X, cy + 34, row.desc, FONT_BODY, 22, bodyColor, d + 1, TEXT_W);
       objs.push(desc);
 
       // Thin row separator (except after last row)
@@ -177,7 +179,7 @@ export class MenuScene extends Phaser.Scene {
 
     const atkDesc = this._txt(PX + PAD, cy + 62,
       'Draw a line FROM your Fighter toward any enemy — their Fighters, Shields, or Base. The first thing your line hits takes the damage!',
-      FONT_BODY, 20, '#2a2a2a', d + 1, PW - PAD * 2);
+      FONT_BODY, 22, '#2a2a2a', d + 1, PW - PAD * 2);
     objs.push(atkDesc);
 
     // ── Close (X) button ─────────────────────────────────────────────────────
@@ -230,6 +232,7 @@ export class MenuScene extends Phaser.Scene {
     startBtn.on('pointerover', () => startBtn.setTint(0xcccccc));
     startBtn.on('pointerout',  () => startBtn.clearTint());
     startBtn.on('pointerdown', () => {
+      try { this.sound.play('sfx-destroy', { volume: 0.9 }); } catch (_) {}
       this.cameras.main.fade(300, 0, 0, 0, false, (_cam, progress) => {
         if (progress === 1) this.scene.start('GameScene');
       });
@@ -282,21 +285,18 @@ export class MenuScene extends Phaser.Scene {
     this._sketchLabel(g, cx, cy + s * 0.8 + 14, 'triangle', 0x2a7a2a);
   }
 
-  /** Circle — represents "draw a circle → Cannon" */
+  /** Circle — represents "draw a circle → Cannon" (matches CANNON text colour) */
   _sketchCircle2(g, cx, cy) {
     const r = 26;
+    const color = 0x6a4a1f; // same as CANNON nameColor
     for (let p = 0; p < 3; p++) {
       const lw = p === 0 ? 3 : p === 1 ? 2 : 1.2;
-      const a  = p === 0 ? 0.18 : p === 1 ? 0.40 : 0.60;
+      const a  = p === 0 ? 0.22 : p === 1 ? 0.55 : 0.85;
       const jx = (Math.random() - 0.5) * 1.5;
       const jy = (Math.random() - 0.5) * 1.5;
-      g.lineStyle(lw, 0x888888, a);
+      g.lineStyle(lw, color, a);
       g.strokeCircle(cx + jx, cy + jy, r);
     }
-    // Centre dot
-    g.fillStyle(0x888888, 0.45);
-    g.fillCircle(cx, cy, 5);
-    this._sketchLabel(g, cx, cy + r + 14, 'circle', 0x888888);
   }
 
   /** Attack arrow: fighter icon → arrow → target icon */

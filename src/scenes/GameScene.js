@@ -514,7 +514,7 @@ export class GameScene extends Phaser.Scene {
     const guideText = this.add.text(
       CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 3 + 96,
       guidance,
-      { fontFamily: FONT_BODY, fontSize: '20px', color: guideColor,
+      { fontFamily: FONT_BODY, fontSize: '22px', color: guideColor,
         stroke: '#222', strokeThickness: 2, align: 'center' }
     );
     guideText.setOrigin(0.5);
@@ -530,7 +530,10 @@ export class GameScene extends Phaser.Scene {
 
     replayBtn.on('pointerover', () => replayBtn.setAlpha(0.8));
     replayBtn.on('pointerout',  () => replayBtn.setAlpha(1));
-    replayBtn.on('pointerdown', () => this.restartGame());
+    replayBtn.on('pointerdown', () => {
+      try { this.sound.play('sfx-destroy', { volume: 0.9 }); } catch (_) {}
+      this.restartGame();
+    });
 
     this.gameOverUI = { overlay, title, turnText, guideText, replayBtn };
   }
