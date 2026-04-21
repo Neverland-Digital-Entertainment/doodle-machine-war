@@ -130,16 +130,7 @@ export class MenuScene extends Phaser.Scene {
     ];
 
     for (const row of rows) {
-      const rowH = 108;
-      const rcY  = cy + rowH / 2;   // vertical centre of row
-
-      // Pencil sketch illustration
-      const g = this.add.graphics();
-      g.setDepth(d + 1);
-      row.draw(g, DRAW_X, rcY);
-      objs.push(g);
-
-      // Item name
+      // Render name + description first so we can measure their height
       const nameColor = row.dim ? '#aaaaaa' : row.nameColor;
       const bodyColor = row.dim ? '#aaaaaa' : '#2a2a2a';
       const nm = this._txt(TEXT_X, cy + 6, row.name, FONT_TITLE, 22, nameColor, d + 1);
@@ -147,6 +138,17 @@ export class MenuScene extends Phaser.Scene {
 
       const desc = this._txt(TEXT_X, cy + 34, row.desc, FONT_BODY, 22, bodyColor, d + 1, TEXT_W);
       objs.push(desc);
+
+      // Row height grows with description length so separators never clip text
+      const descBottom = desc.y + desc.height;
+      const rowH = Math.max(108, descBottom - cy + 14);
+      const rcY  = cy + rowH / 2;
+
+      // Pencil sketch illustration (vertically centred in final row)
+      const g = this.add.graphics();
+      g.setDepth(d + 1);
+      row.draw(g, DRAW_X, rcY);
+      objs.push(g);
 
       // Thin row separator (except after last row)
       if (row !== rows[rows.length - 1]) {
