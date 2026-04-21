@@ -93,8 +93,10 @@ export class CombatSystem {
     const drawEndY = hit ? targetCY : endY;
 
     // Mark the source cannon as spent after it fires (single-use).
+    // silent=true: the scribble visual+sound is handled by showDestructionEffect
+    // in the animation callback, so markSpent must not double-play audio.
     if (sourceCannon && !sourceCannon.spent) {
-      sourceCannon.markSpent();
+      sourceCannon.markSpent(true);
     }
 
     // Animate the line, then show destruction effect and resolve
@@ -163,9 +165,11 @@ export class CombatSystem {
       this.unitManager.removeWeapon(obj);
       destructions.push({ sprite, cx, cy, size: 50, distance: h.distance });
     }
-    // Cannons (enemy active ones in the line) — mark spent, stay on board
+    // Cannons hit in the piercing path — mark spent (silent: sound handled by stagger)
     for (const h of r.cannonHits) {
-      h.cannon.markSpent();
+      h.cannon.markSpent(true);
+      // Add to stagger queue so scribble+destroy plays after the line lands
+      destructions.push({ sprite: null, cx: h.cannon.x, cy: h.cannon.y, size: 70, distance: h.distance });
     }
 
     // Base damage (if line reaches it) — logic applied immediately,
@@ -186,8 +190,8 @@ export class CombatSystem {
       console.log(`Base damaged (piercing)! HP: ${this.gameState.getPlayerHP(defender)}`);
     }
 
-    // Mark the source cannon spent now that it has fired
-    if (sourceCannon && !sourceCannon.spent) sourceCannon.markSpent();
+    // Mark the source cannon spent now that it has fired (silent — stagger handles audio)
+    if (sourceCannon && !sourceCannon.spent) sourceCannon.markSpent(true);
 
     // Line extends all the way to base center if base was hit, else to user's endpoint
     const drawEndX = baseHit ? baseCX : endX;
