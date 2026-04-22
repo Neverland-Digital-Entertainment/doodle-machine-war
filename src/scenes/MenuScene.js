@@ -43,6 +43,7 @@ export class MenuScene extends Phaser.Scene {
     this.load.image('logo',         logoUrl);
     this.load.image('button-start', buttonStartUrl);
     this.load.audio('sfx-scribble', [sfxScribbleUrl]);
+    this.load.audio('bgm',          ['sfx/bgm.ogg']);
   }
 
   create() {
@@ -50,6 +51,12 @@ export class MenuScene extends Phaser.Scene {
     const bg = this.add.image(CW / 2, CH / 2, 'start-bg');
     bg.setDisplaySize(CW, CH);
     bg.setDepth(0);
+
+    // BGM — looping, respects mute state persisted from previous session
+    const muted = localStorage.getItem('dmw_muted') === '1';
+    this.sound.mute = muted;
+    this.bgm = this.sound.add('bgm', { loop: true, volume: 0.1 });
+    if (!muted) this.bgm.play();
 
     this._showPopup();
     this._drawFooter();
@@ -240,7 +247,10 @@ export class MenuScene extends Phaser.Scene {
     startBtn.on('pointerdown', () => {
       try { this.sound.play('sfx-scribble', { volume: 1.2 }); } catch (_) {}
       this.cameras.main.fade(300, 0, 0, 0, false, (_cam, progress) => {
-        if (progress === 1) this.scene.start('GameScene');
+        if (progress === 1) {
+          if (this.bgm) this.bgm.stop();
+          this.scene.start('GameScene');
+        }
       });
     });
   }
@@ -407,7 +417,7 @@ export class MenuScene extends Phaser.Scene {
 
   _pencilX(g, cx, cy, half, color) {
     for (let p = 0; p < 3; p++) {
-      const lw = p === 0 ? 3.5 : p === 1 ? 2.2 : 1.4;
+      const lw = p === 0 ? 7 : p === 1 ? 4.4 : 2.8;
       const a  = p === 0 ? 0.28 : p === 1 ? 0.65 : 0.92;
       const j  = () => (Math.random() - 0.5) * 1.5;
       g.lineStyle(lw, color, a);
