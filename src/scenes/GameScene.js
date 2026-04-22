@@ -102,7 +102,7 @@ export class GameScene extends Phaser.Scene {
     this._createSfxToggle();
 
     // BGM — looping background music; respects mute via this.sound.mute
-    this.bgm = this.sound.add('bgm', { loop: true, volume: 0.15 });
+    this.bgm = this.sound.add('bgm', { loop: true, volume: 0.1 });
     if (!this.sound.mute) this.bgm.play();
 
     // Show YOUR TURN on game start
@@ -566,7 +566,7 @@ export class GameScene extends Phaser.Scene {
     replayBtn.on('pointerover', () => replayBtn.setAlpha(0.8));
     replayBtn.on('pointerout',  () => replayBtn.setAlpha(1));
     replayBtn.on('pointerdown', () => {
-      try { this.sound.play('sfx-scribble', { volume: 0.9 }); } catch (_) {}
+      try { this.sound.play('sfx-scribble', { volume: 1.2 }); } catch (_) {}
       this.restartGame();
     });
 

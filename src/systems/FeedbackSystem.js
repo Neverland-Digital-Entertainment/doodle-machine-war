@@ -24,7 +24,7 @@ export class FeedbackSystem {
 
     // Shield spawn → shield.ogg; weapon/other → pencil-scribble.ogg
     if (type === 'shield') {
-      this._playSound('sfx-shield', { volume: 1.0 });
+      this._playSound('sfx-shield', { volume: 1.2 });
     } else {
       this._playSound('sfx-scribble', { volume: 0.9 });
     }
@@ -74,8 +74,8 @@ export class FeedbackSystem {
    */
   showDestructionEffect(sprite, cx, cy, size = 60) {
     // Pencil scribble sound immediately, then destroy sound after scribble settles
-    this._playSound('sfx-scribble', { volume: 1.0 });
-    this.scene.time.delayedCall(320, () => this._playSound('sfx-destroy', { volume: 1.0 }));
+    this._playSound('sfx-scribble', { volume: 1.2 });
+    this.scene.time.delayedCall(320, () => this._playSound('sfx-destroy', { volume: 1.2 }));
 
     const g = this.scene.add.graphics();
     g.setDepth(50);
@@ -118,7 +118,7 @@ export class FeedbackSystem {
    *                      caller invokes fadeOut(). Used for cannon blasts.
    */
   animateAttackLine(sx, sy, ex, ey, color, onComplete, sfxKey = 'sfx-attack', options = {}) {
-    if (sfxKey) this._playSound(sfxKey, { volume: 1.0 });
+    if (sfxKey) this._playSound(sfxKey, { volume: 1.2 });
 
     const { lineWidth = 2, persist = false } = options;
     const g = this.scene.add.graphics();

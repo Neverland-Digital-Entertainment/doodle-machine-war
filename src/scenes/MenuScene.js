@@ -238,7 +238,7 @@ export class MenuScene extends Phaser.Scene {
     startBtn.on('pointerover', () => startBtn.setTint(0xcccccc));
     startBtn.on('pointerout',  () => startBtn.clearTint());
     startBtn.on('pointerdown', () => {
-      try { this.sound.play('sfx-scribble', { volume: 0.9 }); } catch (_) {}
+      try { this.sound.play('sfx-scribble', { volume: 1.2 }); } catch (_) {}
       this.cameras.main.fade(300, 0, 0, 0, false, (_cam, progress) => {
         if (progress === 1) this.scene.start('GameScene');
       });
