@@ -243,11 +243,11 @@ export class GameScene extends Phaser.Scene {
           const jx = (Math.random() - 0.5) * 2;
           const jy = (Math.random() - 0.5) * 2;
           const a  = pass === 0 ? 0.25 : pass === 1 ? 0.6 : 0.92;
-          const w  = pass === 0 ? 3.5  : pass === 1 ? 2.5 : 1.8;
+          const w  = pass === 0 ? 6    : pass === 1 ? 4   : 3;    // match animated version
           sg.lineStyle(w, 0xaa1111, a);
           sg.beginPath();
-          sg.moveTo(cx - cellW / 2 + 9 + jx, cy - cellH / 2 + 9 + jy);
-          sg.lineTo(cx + cellW / 2 - 9 + jx, cy + cellH / 2 - 9 + jy);
+          sg.moveTo(cx - cellW / 2 - 4 + jx, cy - cellH / 2 - 4 + jy);
+          sg.lineTo(cx + cellW / 2 + 4 + jx, cy + cellH / 2 + 4 + jy);
           sg.strokePath();
         }
         cellList.push(sg);
