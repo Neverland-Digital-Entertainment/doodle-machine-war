@@ -186,8 +186,14 @@ export class CombatSystem {
       console.log(`Base damaged (piercing)! HP: ${this.gameState.getPlayerHP(defender)}`);
     }
 
-    // Mark the source cannon spent now that it has fired
-    if (sourceCannon && !sourceCannon.spent) sourceCannon.markSpent();
+    // Source cannon is spent after firing — add to stagger so it disappears
+    // with a destruction effect after the beam lands (distance 0 = fires first)
+    if (sourceCannon && !sourceCannon.spent) {
+      const sprite = sourceCannon.sprite;
+      sourceCannon.sprite = null;
+      sourceCannon.markSpent();
+      destructions.push({ sprite, cx: sourceCannon.x, cy: sourceCannon.y, size: 60, distance: 0 });
+    }
 
     // Line extends all the way to base center if base was hit, else to user's endpoint
     const drawEndX = baseHit ? baseCX : endX;
