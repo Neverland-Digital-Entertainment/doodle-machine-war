@@ -200,18 +200,28 @@ export class CombatSystem {
       }
       this.scene.feedbackSystem.animateAttackLine(
         startX, startY, drawEndX, drawEndY, color,
-        () => {
+        ({ fadeOut }) => {
           destructions.sort((a, b) => a.distance - b.distance);
-          destructions.forEach((d, i) => {
-            this.scene.time.delayedCall(i * 80, () => {
-              this.scene.feedbackSystem.showDestructionEffect(
-                d.sprite, d.cx, d.cy, d.size
-              );
+          if (destructions.length === 0) {
+            // Nothing to destroy — fade beam immediately
+            this.scene.time.delayedCall(400, fadeOut);
+          } else {
+            destructions.forEach((d, i) => {
+              this.scene.time.delayedCall(i * 80, () => {
+                this.scene.feedbackSystem.showDestructionEffect(
+                  d.sprite, d.cx, d.cy, d.size
+                );
+                // Fade beam after the last target's destruction effect starts
+                if (i === destructions.length - 1) {
+                  this.scene.time.delayedCall(400, fadeOut);
+                }
+              });
             });
-          });
+          }
           resolve();
         },
-        'sfx-cannon'  // cannon line uses cannon sfx, not fighter sfx-attack
+        'sfx-cannon',
+        { lineWidth: 20, persist: true }  // thick beam, stays until all targets destroyed
       );
     });
   }

@@ -109,14 +109,43 @@ export class FeedbackSystem {
    * Progressively draws a pencil line from (sx,sy) → (ex,ey).
    * onComplete fires after the line is fully drawn and held briefly.
    */
-  animateAttackLine(sx, sy, ex, ey, color, onComplete, sfxKey = 'sfx-attack') {
+  /**
+   * Animate an attack line from (sx,sy) → (ex,ey).
+   *
+   * options.lineWidth  — stroke width (default 2 for fighters)
+   * options.persist    — if true, fire onComplete({fadeOut}) as soon as the line
+   *                      is fully drawn and keep it visible+pulsing until the
+   *                      caller invokes fadeOut(). Used for cannon blasts.
+   */
+  animateAttackLine(sx, sy, ex, ey, color, onComplete, sfxKey = 'sfx-attack', options = {}) {
     if (sfxKey) this._playSound(sfxKey, { volume: 0.85 });
 
+    const { lineWidth = 2, persist = false } = options;
     const g = this.scene.add.graphics();
     g.setDepth(30);
 
     const dist = Math.hypot(ex - sx, ey - sy);
     const drawDuration = Math.max(150, Math.min(380, dist * 0.75));
+
+    // Helper: draw the fully-extended line (used in persist mode for pulse redraws)
+    const drawFull = (alpha = 1) => {
+      g.clear();
+      g.fillStyle(color, 0.9 * alpha);
+      g.fillCircle(sx, sy, lineWidth * 1.5);
+      g.fillCircle(ex, ey, lineWidth * 1.5);
+      this._pencilLine(g, [{ x: sx, y: sy }, { x: ex, y: ey }], color, lineWidth);
+    };
+
+    const fadeOut = () => {
+      // Stop any pulse tween, then fade
+      this.scene.tweens.killTweensOf(g);
+      this.scene.tweens.add({
+        targets: g,
+        alpha: 0,
+        duration: 280,
+        onComplete: () => g.destroy(),
+      });
+    };
 
     this.scene.tweens.addCounter({
       from: 0,
@@ -128,27 +157,66 @@ export class FeedbackSystem {
         const cx = sx + (ex - sx) * t;
         const cy = sy + (ey - sy) * t;
         g.clear();
-        // Origin dot
         g.fillStyle(color, 0.9);
-        g.fillCircle(sx, sy, 4);
-        // Pencil line to current tip
-        this._pencilLine(g, [{ x: sx, y: sy }, { x: cx, y: cy }], color, 2);
+        g.fillCircle(sx, sy, lineWidth * 1.5);
+        this._pencilLine(g, [{ x: sx, y: sy }, { x: cx, y: cy }], color, lineWidth);
       },
       onComplete: () => {
-        // Hold, then fade
-        this.scene.time.delayedCall(320, () => {
-          this.scene.tweens.add({
-            targets: g,
-            alpha: 0,
-            duration: 220,
-            onComplete: () => {
-              g.destroy();
-              if (onComplete) onComplete();
-            },
+        if (persist) {
+          // Draw final full line and start a pulse (alpha oscillation + energy nodes)
+          drawFull();
+          this._startLinePulse(g, sx, sy, ex, ey, color, lineWidth, drawFull);
+          if (onComplete) onComplete({ fadeOut });
+        } else {
+          // Standard: hold briefly, fade, then resolve
+          this.scene.time.delayedCall(320, () => {
+            this.scene.tweens.add({
+              targets: g,
+              alpha: 0,
+              duration: 220,
+              onComplete: () => {
+                g.destroy();
+                if (onComplete) onComplete();
+              },
+            });
           });
-        });
+        }
       },
     });
+  }
+
+  /**
+   * Pulse a graphics object while a cannon beam persists.
+   * Alternates alpha and redraws energy nodes along the beam.
+   */
+  _startLinePulse(g, sx, sy, ex, ey, color, lineWidth, redrawFn) {
+    const nodes = 5; // energy nodes along the beam
+    let tick = 0;
+
+    const pulse = () => {
+      if (!g.scene) return; // destroyed
+      tick++;
+      const alpha = 0.7 + Math.sin(tick * 0.6) * 0.3; // 0.4 → 1.0
+      redrawFn(alpha);
+
+      // Draw glowing energy nodes that drift along the beam
+      for (let i = 0; i < nodes; i++) {
+        const t = ((i / nodes) + tick * 0.04) % 1;
+        const nx = sx + (ex - sx) * t;
+        const ny = sy + (ey - sy) * t;
+        const r  = (lineWidth * 0.8) * (0.6 + Math.sin(tick * 0.8 + i) * 0.4);
+        g.fillStyle(0xffffff, alpha * 0.6);
+        g.fillCircle(nx, ny, r);
+      }
+    };
+
+    // Run at ~20fps using a repeating delayed call chain
+    const loop = () => {
+      if (!g.scene) return;
+      pulse();
+      this.scene.time.delayedCall(50, loop);
+    };
+    this.scene.time.delayedCall(50, loop);
   }
 
   // ── HP strike ────────────────────────────────────────────────────────────
