@@ -12,13 +12,13 @@ export class Weapon {
     this.playerNum = playerNum;
     this.x = x;
     this.y = y;
-    this.size = 36; // half-size ~72px hitbox — covers the plane body/wings, ignores transparent corners
+    this.size = 36; // half-size hitbox (conservative — ignores transparent corners)
     this.active = true;
 
-    // Create sprite at 128×128
+    // Display at natural asset size (96×79 px)
     const textureKey = playerNum === PLAYERS.PLAYER_1 ? 'plane-player' : 'plane-enemy';
     this.sprite = scene.add.image(x, y, textureKey);
-    this.sprite.setDisplaySize(128, 128);
+    this.sprite.setDisplaySize(96, 79);
     // Depth 1 — fighters sit below shields (depth 2) so shields visually
     // protect the planes, matching the gameplay logic.
     this.sprite.setDepth(1);

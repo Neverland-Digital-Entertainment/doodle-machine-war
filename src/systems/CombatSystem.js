@@ -64,15 +64,15 @@ export class CombatSystem {
         obj.sprite = null;
         this.unitManager.removeWeapon(obj);
       } else if (hitResult.targetType === 'cannon') {
-        // Cannon was hit: it stays on the board but is "spent" (scribbled out).
+        // Cannon was hit: destroy it like any other unit.
         const obj = hitResult.targetObject;
-        targetCX = obj.x;
-        targetCY = obj.y;
+        targetSprite = obj.sprite;
+        targetCX     = obj.x;
+        targetCY     = obj.y;
+        targetSize   = 60;
+        obj.sprite   = null; // detach so removeCannon won't double-destroy
         obj.markSpent();
-        skipDestructionEffect = true;
-        if (this.scene?.feedbackSystem) {
-          this.scene.feedbackSystem._playSound('sfx-scribble', { volume: 0.85 });
-        }
+        this.unitManager.removeCannon(obj);
       } else if (hitResult.targetType === 'base') {
         // Damage applied immediately so game state is consistent
         const defender = hitResult.hitTarget;
@@ -92,11 +92,9 @@ export class CombatSystem {
     const drawEndX = hit ? targetCX : endX;
     const drawEndY = hit ? targetCY : endY;
 
-    // Mark the source cannon as spent after it fires (single-use).
-    // silent=true: the scribble visual+sound is handled by showDestructionEffect
-    // in the animation callback, so markSpent must not double-play audio.
+    // Mark the source cannon spent after firing (single-use).
     if (sourceCannon && !sourceCannon.spent) {
-      sourceCannon.markSpent(true);
+      sourceCannon.markSpent();
     }
 
     // Animate the line, then show destruction effect and resolve
@@ -160,11 +158,14 @@ export class CombatSystem {
       this.unitManager.removeWeapon(obj);
       destructions.push({ sprite, cx, cy, size: 50, distance: h.distance });
     }
-    // Cannons hit in the piercing path — mark spent (silent: sound handled by stagger)
+    // Cannons hit in the piercing path — destroy like other units
     for (const h of r.cannonHits) {
-      h.cannon.markSpent(true);
-      // Add to stagger queue so scribble+destroy plays after the line lands
-      destructions.push({ sprite: null, cx: h.cannon.x, cy: h.cannon.y, size: 70, distance: h.distance });
+      const obj = h.cannon;
+      const sprite = obj.sprite;
+      obj.sprite = null;
+      obj.markSpent();
+      this.unitManager.removeCannon(obj);
+      destructions.push({ sprite, cx: obj.x, cy: obj.y, size: 60, distance: h.distance });
     }
 
     // Base damage (if line reaches it) — logic applied immediately,
@@ -185,8 +186,14 @@ export class CombatSystem {
       console.log(`Base damaged (piercing)! HP: ${this.gameState.getPlayerHP(defender)}`);
     }
 
-    // Mark the source cannon spent now that it has fired (silent — stagger handles audio)
-    if (sourceCannon && !sourceCannon.spent) sourceCannon.markSpent(true);
+    // Source cannon is spent after firing — add to stagger so it disappears
+    // with a destruction effect after the beam lands (distance 0 = fires first)
+    if (sourceCannon && !sourceCannon.spent) {
+      const sprite = sourceCannon.sprite;
+      sourceCannon.sprite = null;
+      sourceCannon.markSpent();
+      destructions.push({ sprite, cx: sourceCannon.x, cy: sourceCannon.y, size: 60, distance: 0 });
+    }
 
     // Line extends all the way to base center if base was hit, else to user's endpoint
     const drawEndX = baseHit ? baseCX : endX;
@@ -200,18 +207,28 @@ export class CombatSystem {
       }
       this.scene.feedbackSystem.animateAttackLine(
         startX, startY, drawEndX, drawEndY, color,
-        () => {
+        ({ fadeOut }) => {
           destructions.sort((a, b) => a.distance - b.distance);
-          destructions.forEach((d, i) => {
-            this.scene.time.delayedCall(i * 80, () => {
-              this.scene.feedbackSystem.showDestructionEffect(
-                d.sprite, d.cx, d.cy, d.size
-              );
+          if (destructions.length === 0) {
+            // Nothing to destroy — fade beam immediately
+            this.scene.time.delayedCall(400, fadeOut);
+          } else {
+            destructions.forEach((d, i) => {
+              this.scene.time.delayedCall(i * 80, () => {
+                this.scene.feedbackSystem.showDestructionEffect(
+                  d.sprite, d.cx, d.cy, d.size
+                );
+                // Fade beam after the last target's destruction effect starts
+                if (i === destructions.length - 1) {
+                  this.scene.time.delayedCall(400, fadeOut);
+                }
+              });
             });
-          });
+          }
           resolve();
         },
-        'sfx-cannon'  // cannon line uses cannon sfx, not fighter sfx-attack
+        'sfx-cannon',
+        { lineWidth: 20, persist: true }  // thick beam, stays until all targets destroyed
       );
     });
   }

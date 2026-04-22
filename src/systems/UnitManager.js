@@ -231,6 +231,16 @@ export class UnitManager {
   }
 
   /**
+   * Remove a cannon (called after destruction animation).
+   * Keeps a tombstone entry so the 1-per-battle limit still applies.
+   */
+  removeCannon(cannon) {
+    cannon.destroy();
+    // Keep the object in this.cannons but with sprite=null so the limit
+    // check (getAllCannonsForPlayer) still prevents placing another one.
+  }
+
+  /**
    * Clear all units (for reset)
    */
   clear() {
