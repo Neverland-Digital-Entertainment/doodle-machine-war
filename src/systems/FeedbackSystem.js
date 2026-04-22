@@ -229,10 +229,11 @@ export class FeedbackSystem {
     const g = this.scene.add.graphics();
     g.setDepth(12);
 
-    const x1 = cx - cellW / 2 + 8;
-    const y1 = cy - cellH / 2 + 8;
-    const x2 = cx + cellW / 2 - 8;
-    const y2 = cy + cellH / 2 - 8;
+    // Extend 4px beyond cell edge on each side to double the visible length
+    const x1 = cx - cellW / 2 - 4;
+    const y1 = cy - cellH / 2 - 4;
+    const x2 = cx + cellW / 2 + 4;
+    const y2 = cy + cellH / 2 + 4;
 
     this.scene.tweens.addCounter({
       from: 0,
@@ -246,7 +247,7 @@ export class FeedbackSystem {
           const jx = (Math.random() - 0.5) * 1.8;
           const jy = (Math.random() - 0.5) * 1.8;
           const a  = pass === 0 ? 0.25 : pass === 1 ? 0.6 : 0.9;
-          const w  = pass === 0 ? 3    : pass === 1 ? 2   : 1.5;
+          const w  = pass === 0 ? 6    : pass === 1 ? 4   : 3;   // ×2 thickness
           g.lineStyle(w, 0xaa1111, a);
           g.beginPath();
           g.moveTo(x1 + jx, y1 + jy);
