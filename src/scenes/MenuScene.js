@@ -4,7 +4,7 @@ import { CONFIG } from '../config.js';
 import startBgUrl     from '../images/start_bg.webp';
 import logoUrl        from '../images/logo.webp';
 import buttonStartUrl from '../images/button_start.webp';
-import sfxScribbleUrl from '../sfx/pencil-scribble.ogg';
+const sfxScribbleUrl = 'sfx/pencil-scribble.ogg';
 
 const FONT_TITLE = 'sketch_block';
 const FONT_BODY  = 'brown_big_lunch';

@@ -11,13 +11,14 @@ import { AISystem } from '../systems/AISystem.js';
 import bgUrl from '../images/bg.webp';
 import buttonReplayUrl from '../images/button_replay.webp';
 
-// SFX — imported as URLs so vite-plugin-singlefile inlines them as base64
-import sfxAttackUrl       from '../sfx/attack.ogg';
-import sfxScribbleUrl     from '../sfx/pencil-scribble.ogg';
-import sfxShieldUrl       from '../sfx/shield.ogg';
-import sfxDestroyUrl      from '../sfx/destroy.ogg';
-import sfxCannonUrl       from '../sfx/cannon.ogg';
-import bgmUrl             from '../sfx/bgm.ogg';
+// SFX — loaded from public/sfx/ at runtime (not inlined) so audio files
+// can be swapped without rebuilding the app.
+const sfxAttackUrl   = 'sfx/attack.ogg';
+const sfxScribbleUrl = 'sfx/pencil-scribble.ogg';
+const sfxShieldUrl   = 'sfx/shield.ogg';
+const sfxDestroyUrl  = 'sfx/destroy.ogg';
+const sfxCannonUrl   = 'sfx/cannon.ogg';
+const bgmUrl         = 'sfx/bgm.ogg';
 import basePlayerUrl from '../images/base-player.webp';
 import baseEnemyUrl from '../images/base-enemy.webp';
 import baseUIUrl from '../images/base_UI.webp';
