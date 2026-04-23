@@ -4,8 +4,7 @@ import { CONFIG } from '../config.js';
 import startBgUrl     from '../images/start_bg.webp';
 import logoUrl        from '../images/logo.webp';
 import buttonStartUrl from '../images/button_start.webp';
-import sfxScribbleUrl from '../assets/sfx/pencil-scribble.ogg';
-import bgmUrl         from '../assets/sfx/bgm.ogg';
+const sfxScribbleUrl = 'sfx/pencil-scribble.ogg';
 
 const FONT_TITLE = 'sketch_block';
 const FONT_BODY  = 'brown_big_lunch';
@@ -44,7 +43,7 @@ export class MenuScene extends Phaser.Scene {
     this.load.image('logo',         logoUrl);
     this.load.image('button-start', buttonStartUrl);
     this.load.audio('sfx-scribble', [sfxScribbleUrl]);
-    this.load.audio('bgm',          [bgmUrl]);
+    this.load.audio('bgm',          ['sfx/bgm.ogg']);
   }
 
   create() {
