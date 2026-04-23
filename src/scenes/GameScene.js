@@ -353,6 +353,21 @@ export class GameScene extends Phaser.Scene {
           return;
         }
 
+        // Cannon direction guard: must fire toward opponent's zone.
+        // If the endpoint is in the attacker's own zone, cancel silently
+        // so the cannon is not wasted and the player can re-aim.
+        if (piercing) {
+          const firingIntoOwnZone = currentPlayer === PLAYERS.PLAYER_1
+            ? endPoint.y > CONFIG.DIVIDER_Y   // P1 fires downward = own zone
+            : endPoint.y < CONFIG.DIVIDER_Y;  // P2 fires upward   = own zone
+          if (firingIntoOwnZone) {
+            if (this.feedbackSystem) {
+              this.feedbackSystem.showPlacementError(endPoint.x, endPoint.y, 'zone');
+            }
+            return; // keep attack mode on so they can re-aim
+          }
+        }
+
         this.cannonAttackSource = null;
         // Lock input immediately; call markActionUsed after animation finishes
         this.actionUsedThisTurn = true;
