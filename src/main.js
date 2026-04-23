@@ -3,14 +3,19 @@ import { MenuScene } from './scenes/MenuScene.js';
 import { GameScene } from './scenes/GameScene.js';
 import { CONFIG } from './config.js';
 
-// Fonts live in public/fonts/ → copied to dist/fonts/ as separate files.
-// FontFace API uses relative paths; CSS font-loading is NOT blocked by file://
-// CORS (unlike XHR), so this works when the HTML is opened directly from disk.
+// Import fonts as assets so vite inlines them as base64 data URIs
+import brownBigLunchUrl from './assets/fonts/brown_big_lunch.ttf';
+import sketchBlockUrl from './assets/fonts/sketch_block.ttf';
+
 async function loadFonts() {
-  const body        = new FontFace('brown_big_lunch', 'url(fonts/brown_big_lunch.ttf)');
-  const sketchBlock = new FontFace('sketch_block',    'url(fonts/sketch_block.ttf)');
-  const loaded = await Promise.all([body.load(), sketchBlock.load()]);
-  loaded.forEach(f => document.fonts.add(f));
+  try {
+    const body        = new FontFace('brown_big_lunch', `url(${brownBigLunchUrl})`);
+    const sketchBlock = new FontFace('sketch_block',    `url(${sketchBlockUrl})`);
+    const loaded = await Promise.all([body.load(), sketchBlock.load()]);
+    loaded.forEach(f => document.fonts.add(f));
+  } catch (e) {
+    console.warn('Font loading failed, starting game anyway:', e);
+  }
 }
 
 const gameConfig = {
