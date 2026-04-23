@@ -30,6 +30,18 @@ const gameConfig = {
   scene: [MenuScene, GameScene],
 };
 
-loadFonts().then(() => {
+loadFonts().then(async () => {
   new Phaser.Game(gameConfig);
+
+  // Notify Wavedash that the game has loaded (dismisses the loading screen).
+  // window.Wavedash is undefined when running outside Wavedash — safe to skip.
+  try {
+    if (window.Wavedash) {
+      const Wavedash = await window.Wavedash;
+      Wavedash.updateLoadProgressZeroToOne(1);
+      Wavedash.init({});
+    }
+  } catch (e) {
+    console.warn('Wavedash SDK init skipped:', e);
+  }
 });
