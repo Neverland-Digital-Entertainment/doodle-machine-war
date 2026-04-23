@@ -56,7 +56,7 @@ export class MenuScene extends Phaser.Scene {
     // BGM — looping, respects mute state persisted from previous session
     const muted = localStorage.getItem('dmw_muted') === '1';
     this.sound.mute = muted;
-    this.bgm = this.sound.add('bgm', { loop: true, volume: 0.1 });
+    this.bgm = this.sound.add('bgm', { loop: true, volume: 0.2 });
     if (!muted) this.bgm.play();
 
     this._showPopup();
