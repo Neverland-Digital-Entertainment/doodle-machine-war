@@ -44,8 +44,9 @@ export class DrawingSystem {
     this.graphics.clear();
     this.previewGraphics.clear();
 
-    // Check if mousedown is on a weapon or an active cannon — auto enable attack mode.
-    // Cannons set `cannonAttackSource` so the scene knows to use a piercing shot.
+    // Reset attack state before re-detecting — ensures cannon detection always
+    // runs fresh even when attackMode carried over from a blocked previous attempt.
+    this.scene.attackMode = false;
     this.scene.cannonAttackSource = null;
     if (this.scene.unitManager) {
       const currentPlayer = this.scene.gameStateManager.currentPlayer;
