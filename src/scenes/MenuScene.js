@@ -137,7 +137,7 @@ export class MenuScene extends Phaser.Scene {
         draw: (g, cx, rcY) => this._sketchCircle2(g, cx, rcY),
         name: 'CANNON',
         nameColor: '#6a4a1f',
-        desc: 'Draw a CIRCLE to build a Cannon (1 per battle). Its shot pierces through all Shields — but it\'s spent after firing OR being hit.',
+        desc: 'Draw a CIRCLE to build a Cannon (1 on field at a time). Its shot pierces through all Shields. Once fired or destroyed, you can build another!',
       },
     ];
 

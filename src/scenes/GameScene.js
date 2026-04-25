@@ -549,18 +549,16 @@ export class GameScene extends Phaser.Scene {
     turnText.setOrigin(0.5);
     turnText.setDepth(101);
 
-    // Guidance / best-record line
-    let guidance;
-    if (playerWon && isNewBest && gamesPlayed > 1) {
-      guidance = 'NEW BEST! Can you go lower?';
-    } else if (playerWon && bestTurns > 0 && !isNewBest) {
-      guidance = `Best: ${bestTurns} turns — beat it!`;
-    } else if (playerWon) {
-      guidance = 'Try again — can you do it faster?';
-    } else {
-      guidance = "Don't give up — try again!";
-    }
-    const guideColor = (playerWon && isNewBest && gamesPlayed > 1) ? '#ffcc33' : '#f5f0e8';
+    // Random tip shown on every game over screen
+    const tips = [
+      'Protect your Cannon with Shields.',
+      'The Base Core is the real target.',
+      'A single Cannon can turn the battle around.',
+      'Defence buys time. Offence wins wars.',
+      'Destroying the Base is most important.',
+    ];
+    const guidance = 'Tip: ' + tips[Math.floor(Math.random() * tips.length)];
+    const guideColor = '#f5f0e8';
     const guideText = this.add.text(
       CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 3 + 96,
       guidance,

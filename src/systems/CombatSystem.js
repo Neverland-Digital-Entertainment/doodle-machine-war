@@ -192,6 +192,7 @@ export class CombatSystem {
       const sprite = sourceCannon.sprite;
       sourceCannon.sprite = null;
       sourceCannon.markSpent();
+      this.unitManager.removeCannon(sourceCannon); // fully remove so position is free and AI can rebuild
       destructions.push({ sprite, cx: sourceCannon.x, cy: sourceCannon.y, size: 60, distance: 0 });
     }
 

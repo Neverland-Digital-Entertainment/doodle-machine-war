@@ -11,19 +11,19 @@ export class UnitManager {
     this.scene = scene;
     this.shields = [];
     this.weapons = [];
-    this.cannons = []; // max 1 per player per battle; spent cannons stay here for visuals
+    this.cannons = []; // max 1 on field at a time; fully removed after spent/destroyed so rebuilding is allowed
     this.maxShieldsPerPlayer = 3;
     this.maxCannonsPerPlayer = 1;
   }
 
   /**
    * Try to place a cannon at (x, y). Returns 'ok' | 'limit' | 'zone' | 'overlap'.
-   * Limit counts both active and spent cannons — only 1 per battle.
+   * Limit: max 1 on the field at a time, but can rebuild after it's spent/destroyed.
    */
   placeCannon(playerNum, x, y) {
-    const allOwned = this.cannons.filter(c => c.playerNum === playerNum);
-    if (allOwned.length >= this.maxCannonsPerPlayer) {
-      console.log('Cannot place cannon: already have one this battle');
+    const onField = this.cannons.filter(c => c.playerNum === playerNum && c.active);
+    if (onField.length >= this.maxCannonsPerPlayer) {
+      console.log('Cannot place cannon: already have one on the field');
       return 'limit';
     }
 
@@ -232,12 +232,12 @@ export class UnitManager {
 
   /**
    * Remove a cannon (called after destruction animation).
-   * Keeps a tombstone entry so the 1-per-battle limit still applies.
+   * Fully removes it from the array so a new one can be built.
    */
   removeCannon(cannon) {
     cannon.destroy();
-    // Keep the object in this.cannons but with sprite=null so the limit
-    // check (getAllCannonsForPlayer) still prevents placing another one.
+    const idx = this.cannons.indexOf(cannon);
+    if (idx >= 0) this.cannons.splice(idx, 1);
   }
 
   /**
