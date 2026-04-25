@@ -131,19 +131,32 @@ export class AISystem {
     const aiWeapons = this.unitManager.getWeaponsForPlayer(this.aiPlayer);
     const aiCannons = this.unitManager.getCannonsForPlayer(this.aiPlayer);
 
-    // Cannon probability based on opponent's shield count (more shields = better target)
-    // plus a bonus for AI being wounded (desperate = more willing to gamble).
+    // Cannon probability based on opponent's shield count + AI HP bonus.
     // shields=1 → 15%, shields=2 → 35%, shields=3 → 60%
     // HP3 +10%, HP2 +15%, HP1 +20%
-    if (aiCannons.length > 0) {
+    // If cannon is triggered but not yet built, place it first (uses this turn).
+    // If cannon was already spent this battle, fall through to weapon attack.
+    {
       const opponentShields = this.unitManager.getShieldsForPlayer(this.opponentPlayer).length;
       const selfHP = this.gameState.getPlayerHP(this.aiPlayer);
       const baseByShields = { 0: 0, 1: 0.15, 2: 0.35, 3: 0.60 };
       const bonusByHP     = { 4: 0,  3: 0.10, 2: 0.15, 1: 0.20 };
       const p = (baseByShields[opponentShields] ?? 0.60) + (bonusByHP[selfHP] ?? 0);
+
       if (Math.random() < Math.min(p, 0.95)) {
-        await this._executeCannonAttack(aiCannons[0]);
-        return;
+        if (aiCannons.length > 0) {
+          // Have an active cannon — fire it
+          await this._executeCannonAttack(aiCannons[0]);
+          return;
+        }
+        const allCannons = this.unitManager.getAllCannonsForPlayer(this.aiPlayer);
+        if (allCannons.length === 0) {
+          // No cannon ever placed — build one now (turn used for placement)
+          console.log('AI: cannon triggered — placing cannon instead of attacking');
+          this.placeCannon();
+          return;
+        }
+        // Cannon already spent this battle — fall through to weapon attack
       }
     }
 
