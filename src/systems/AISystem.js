@@ -131,14 +131,17 @@ export class AISystem {
     const aiWeapons = this.unitManager.getWeaponsForPlayer(this.aiPlayer);
     const aiCannons = this.unitManager.getCannonsForPlayer(this.aiPlayer);
 
-    // Cannon attack probability scales with opponent HP pressure:
-    // HP4 → 0%, HP3 → 25%, HP2 → 50%, HP1 → 75%
+    // Cannon probability based on opponent's shield count (more shields = better target)
+    // plus a bonus for AI being wounded (desperate = more willing to gamble).
+    // shields=1 → 15%, shields=2 → 35%, shields=3 → 60%
+    // HP3 +10%, HP2 +15%, HP1 +20%
     if (aiCannons.length > 0) {
-      // Based on AI's OWN HP — the more wounded, the more desperate
+      const opponentShields = this.unitManager.getShieldsForPlayer(this.opponentPlayer).length;
       const selfHP = this.gameState.getPlayerHP(this.aiPlayer);
-      const cannonProbByHP = { 4: 0, 3: 0.25, 2: 0.5, 1: 0.75 };
-      const p = cannonProbByHP[selfHP] ?? 0;
-      if (Math.random() < p) {
+      const baseByShields = { 0: 0, 1: 0.15, 2: 0.35, 3: 0.60 };
+      const bonusByHP     = { 4: 0,  3: 0.10, 2: 0.15, 1: 0.20 };
+      const p = (baseByShields[opponentShields] ?? 0.60) + (bonusByHP[selfHP] ?? 0);
+      if (Math.random() < Math.min(p, 0.95)) {
         await this._executeCannonAttack(aiCannons[0]);
         return;
       }
