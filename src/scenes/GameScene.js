@@ -556,7 +556,7 @@ export class GameScene extends Phaser.Scene {
       'The Base Core is the real target.',
       'A single Cannon can turn the battle around.',
       'Defence buys time. Offence wins wars.',
-      'Destroying the Base is more important than trading Weapons.',
+      'Destroying the Base is most important.',
     ];
     const guidance = 'Tip: ' + tips[Math.floor(Math.random() * tips.length)];
     const guideColor = '#f5f0e8';
